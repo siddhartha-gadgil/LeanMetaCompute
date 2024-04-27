@@ -48,6 +48,14 @@ theorem odd_powerMod (a b m n : ℕ) :
 
 open Lean Meta Elab Tactic
 
+def eqnExpr (a b m n : ℕ) : MetaM Expr := do
+    let aExp := toExpr a
+    let bExp := toExpr b
+    let mExp := toExpr m
+    let nExp := toExpr n
+    let lhs := mkAppN (mkConst ``powerMod) #[aExp, bExp, mExp]
+    mkEq lhs nExp
+
 def simplifyPowMod (a b m : ℕ): MVarId → MetaM (List (MVarId)) :=
   fun mvarId =>
     mvarId.withContext do
@@ -85,24 +93,37 @@ def simplifyPowMod (a b m : ℕ): MVarId → MetaM (List (MVarId)) :=
           loop (b/2)  mvarId'
     loop b  mvarId
     return []
-  where eqnExpr (a b m n : ℕ) : MetaM Expr := do
-    let aExp := toExpr a
-    let bExp := toExpr b
-    let mExp := toExpr m
-    let nExp := toExpr n
-    let lhs := mkAppN (mkConst ``powerMod) #[aExp, bExp, mExp]
-    mkEq lhs nExp
+
 
 elab "simplify_power_mod"
     a:num "^" b:num "%" m:num  : tactic =>
     liftMetaTactic <|
       simplifyPowMod a.getNat b.getNat m.getNat
 
+elab "simplify_power_mod#"
+    a:num "^" b:num "%" m:num  : term => do
+    let n := powerMod a.getNat b.getNat m.getNat
+    let goal ← eqnExpr a.getNat b.getNat m.getNat n
+    let mvarId ← mkFreshMVarId
+    let mvar ← mkFreshExprMVarWithId mvarId (some goal)
+    let _ ← simplifyPowMod a.getNat b.getNat m.getNat mvarId
+    return mvar
+
+#check PSigma
 
 #eval powerMod 2232421124 10027676 121 -- 45
 
 example : powerMod 2232421124 10027676 121 = 45 := by
   simplify_power_mod 2232421124 ^ 10027676 % 121
+
+example : powerMod 2232421124 10027676 121 = 45 := by
+  have := simplify_power_mod# 2232421124 ^ 10027676 % 121
+  rw [this]
+
+example : ¬ powerMod 2232421124 10027676 121 = 41 := by
+  have := simplify_power_mod# 2232421124 ^ 10027676 % 121
+  rw [this]
+  simp
 
 #eval powerMod 2 85083351022467190124442353598696803287939269665616 85083351022467190124442353598696803287939269665617 -- 1
 
