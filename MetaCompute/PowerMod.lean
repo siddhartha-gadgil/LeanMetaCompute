@@ -45,6 +45,34 @@ theorem odd_powerMod (a b m n : ℕ) :
     simp [h1]
     rw [hyp]
 
+theorem powerDef (a b m: ℕ): powerMod a b m = a ^ b % m := by
+  if c: b = 0 then
+    simp [c, zero_powerMod]
+  else
+    if b % 2 = 0 then
+      have h: b = 2 * (b / 2) := by
+        rw [Nat.mul_div_cancel' (Nat.dvd_of_mod_eq_zero (by assumption))]
+      rw [h]
+      have hyp := powerDef a (b/2) m
+      let lem := even_powerMod a (b/2) m _ hyp
+      rw [lem]
+      rw [two_mul, Nat.pow_add, Nat.mul_mod (a ^ (b/2))]
+    else
+      have h: b = 2 * (b / 2) + 1 := by
+        let lem := Nat.div_add_mod b 2
+        have c' : b % 2 = 1 := by
+          cases Nat.mod_two_eq_zero_or_one b with
+          | inl h => contradiction
+          | inr h => assumption
+        simp [c'] at lem
+        rw [lem]
+      rw [h]
+      have hyp := powerDef a (b/2) m
+      let lem := odd_powerMod a (b/2) m _ hyp
+      simp at lem
+      rw [lem]
+      rw [two_mul, Nat.pow_add, Nat.pow_add, pow_one, mul_assoc, mul_comm]
+      simp [Nat.mul_mod, Nat.mod_mod]
 
 open Lean Meta Elab Tactic
 
