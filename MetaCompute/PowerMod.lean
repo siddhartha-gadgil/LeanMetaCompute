@@ -37,9 +37,6 @@ theorem odd_powerMod (a b m n : ℕ) :
       intro h
       simp at h
     simp [nz]
-    have m1 : (2 * b + 1) % 2 = 1 := by
-      simp [Nat.add_mod]
-    simp [m1]
     have h1 : (2 * b + 1) / 2 = b := by
       simp [Nat.add_div]
     simp [h1]
@@ -148,7 +145,7 @@ elab "simplify_power_mod#"
     return mvar
 
 
-#eval powerMod 2232421124 10027676 121 -- 45
+-- #eval powerMod 2232421124 10027676 121 -- 45
 
 example : powerMod 2232421124 10027676 121 = 45 := by
   simplify_power_mod 2232421124 ^ 10027676 % 121
