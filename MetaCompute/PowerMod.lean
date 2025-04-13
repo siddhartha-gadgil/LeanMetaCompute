@@ -81,7 +81,7 @@ def eqnExpr (a b m n : ℕ) : MetaM Expr := do
     let lhs := mkAppN (mkConst ``powerMod) #[aExp, bExp, mExp]
     mkEq lhs nExp
 
-def simplifyPowMod (a b m : ℕ): MVarId → MetaM (List (MVarId)) :=
+def provePowModM (a b m : ℕ): MVarId → MetaM Unit :=
   fun mvarId =>
     mvarId.withContext do
     let n := powerMod a b m
@@ -117,44 +117,52 @@ def simplifyPowMod (a b m : ℕ): MVarId → MetaM (List (MVarId)) :=
           mvarId.assign expr
           loop (b/2)  mvarId'
     loop b  mvarId
-    return []
+    return
 
 
-elab "simplify_power_mod"
+elab "prove_power_mod"
     a:num "^" b:num "%" m:num  : tactic =>
-    liftMetaTactic <|
-      simplifyPowMod a.getNat b.getNat m.getNat
+    liftMetaTactic <| fun mvarId => do
+      provePowModM a.getNat b.getNat m.getNat mvarId
+      return []
 
-elab "simplify_power_mod#"
+elab "power_mod_pf#"
     a:num "^" b:num "%" m:num  : term => do
     let n := powerMod a.getNat b.getNat m.getNat
     let goal ← eqnExpr a.getNat b.getNat m.getNat n
     let mvarId ← mkFreshMVarId
     let mvar ← mkFreshExprMVarWithId mvarId (some goal)
-    let _ ← simplifyPowMod a.getNat b.getNat m.getNat mvarId
+    let _ ← provePowModM a.getNat b.getNat m.getNat mvarId
     return mvar
 
-elab "simplify_power_mod#"
+elab "power_mod_pf#"
     a:num "^" "(" b':num "/" q:num ")" "%" m:num  : term => do
     let b := b'.getNat / q.getNat
     let n := powerMod a.getNat b m.getNat
     let goal ← eqnExpr a.getNat b m.getNat n
     let mvarId ← mkFreshMVarId
     let mvar ← mkFreshExprMVarWithId mvarId (some goal)
-    let _ ← simplifyPowMod a.getNat b m.getNat mvarId
+    let _ ← provePowModM a.getNat b m.getNat mvarId
     return mvar
+
 
 
 -- #eval powerMod 2232421124 10027676 121 -- 45
 
 example : powerMod 2232421124 10027676 121 = 45 := by
-  simplify_power_mod 2232421124 ^ 10027676 % 121
+  prove_power_mod 2232421124 ^ 10027676 % 121
 
 example : powerMod 2232421124 10027676 121 = 45 := by
-  have := simplify_power_mod# 2232421124 ^ 10027676 % 121
+  have := power_mod_pf# 2232421124 ^ 10027676 % 121
   rw [this]
 
 example : ¬ powerMod 2232421124 10027676 121 = 41 := by
-  have := simplify_power_mod# 2232421124 ^ 10027676 % 121
+  have := power_mod_pf# 2232421124 ^ 10027676 % 121
   rw [this]
   simp
+
+macro "power_mod_neq" a:num "^" "(" b':num "/" q:num ")" "%" m:num  : tactic => do
+  let tac ← `(tactic|have := power_mod_pf# $a ^ ($b' / $q) % $m)
+  let tacs := #[tac, ← `(tactic|rw [this]), ← `(tactic|decide)]
+  let tacSeq ← `(tacticSeq| $tacs*)
+  `(tactic| ($tacSeq))
