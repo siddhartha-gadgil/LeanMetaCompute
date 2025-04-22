@@ -34,8 +34,7 @@ theorem odd_powerMod (a b m n : ℕ) :
     intro hyp
     rw [powerMod]
     have nz : ¬ (2 * b + 1 = 0) := by
-      intro h
-      simp at h
+      omega
     simp [nz]
     have h1 : (2 * b + 1) / 2 = b := by
       simp [Nat.add_div]
@@ -73,81 +72,79 @@ theorem powerDef (a b m: ℕ): powerMod a b m = a ^ b % m := by
 
 open Lean Meta Elab Tactic
 
+/--
+Expression for the equation `powerMod a b m = n`.
+-/
 def eqnExpr (a b m n : ℕ) : MetaM Expr := do
     let aExp := toExpr a
     let bExp := toExpr b
     let mExp := toExpr m
     let nExp := toExpr n
-    let lhs := mkAppN (mkConst ``powerMod) #[aExp, bExp, mExp]
+    let lhs ←  mkAppM ``powerMod #[aExp, bExp, mExp]
     mkEq lhs nExp
 
+def powerModProof (a b m : ℕ) : MetaM Expr := do
+  let n := powerMod a b m
+  let goal ← eqnExpr a b m n
+  let mvarId ← mkFreshMVarId
+  let mvar ← mkFreshExprMVarWithId mvarId (some goal)
+  if b = 0 then
+    let expr ← (mkAppM ``zero_powerMod #[toExpr  a, toExpr  m])
+    mvarId.assign expr
+    return mkMVar mvarId
+  else
+    if b % 2 = 0 then
+      let b' := b/2
+      let n' := powerMod a (b/2) m
+      let prevPf ← powerModProof a b' m
+      let expr ← (mkAppM ``even_powerMod
+        #[toExpr  a, toExpr  b', toExpr  m,
+        toExpr  n', prevPf])
+      mvarId.assign expr
+      return mkMVar mvarId
+    else
+      let b' := b/2
+      let n' := powerMod a (b/2) m
+      let prevPf ← powerModProof a b' m
+      let expr ← (mkAppM ``odd_powerMod
+        #[toExpr  a, toExpr  b', toExpr  m,
+        toExpr  n', prevPf])
+      mvarId.assign expr
+      return mkMVar mvarId
+
+/--
+Given a meta variable `mvarId`, assign to it a proof of the equation `powerMod a b m = n`.
+-/
 def provePowModM (a b m : ℕ): MVarId → MetaM Unit :=
   fun mvarId =>
     mvarId.withContext do
     let n := powerMod a b m
-    let expectedType ← eqnExpr a b m n
+    let expectedType ← eqnExpr a b m n -- `powerMod a b m = n`
     let goalType ← mvarId.getType
     if !(← isDefEq goalType expectedType) then
       throwError s!"unexpected type: goal is {← ppExpr goalType}; computation gives {← ppExpr expectedType}"
-    let rec loop (b : ℕ)(mvarId : MVarId) :  MetaM Unit := do
-      if b = 0 then
-        let expr ← (mkAppM ``zero_powerMod #[toExpr  a, toExpr  m])
-        mvarId.assign expr
-      else
-        if b % 2 = 0 then
-          let b' := b/2
-          let n' := powerMod a (b/2) m
-          let prevGoal ← eqnExpr a b' m n'
-          let mvarId' ← mkFreshMVarId
-          let mvar' ← mkFreshExprMVarWithId mvarId' (some prevGoal)
-          let expr ← (mkAppM ``even_powerMod
-            #[toExpr  a, toExpr  b', toExpr  m,
-            toExpr  n', mvar'])
-          mvarId.assign expr
-          loop (b/2)  mvarId'
-        else
-          let b' := b/2
-          let n' := powerMod a (b/2) m
-          let prevGoal ← eqnExpr a b' m n'
-          let mvarId' ← mkFreshMVarId
-          let mvar' ← mkFreshExprMVarWithId mvarId' (some prevGoal)
-          let expr ← (mkAppM ``odd_powerMod
-            #[toExpr  a, toExpr  b', toExpr  m,
-            toExpr  n', mvar'])
-          mvarId.assign expr
-          loop (b/2)  mvarId'
-    loop b  mvarId
+    let pf ← powerModProof a b m
+    mvarId.assign pf
     return
-
 
 elab "prove_power_mod"
     a:num "^" b:num "%" m:num  : tactic =>
-    liftMetaTactic <| fun mvarId => do
+    liftMetaFinishingTactic <| fun mvarId => do
       provePowModM a.getNat b.getNat m.getNat mvarId
-      return []
 
 elab "power_mod_pf#"
     a:num "^" b:num "%" m:num  : term => do
-    let n := powerMod a.getNat b.getNat m.getNat
-    let goal ← eqnExpr a.getNat b.getNat m.getNat n
-    let mvarId ← mkFreshMVarId
-    let mvar ← mkFreshExprMVarWithId mvarId (some goal)
-    let _ ← provePowModM a.getNat b.getNat m.getNat mvarId
-    return mvar
+    powerModProof a.getNat b.getNat m.getNat
 
 elab "power_mod_pf#"
     a:num "^" "(" b':num "/" q:num ")" "%" m:num  : term => do
     let b := b'.getNat / q.getNat
-    let n := powerMod a.getNat b m.getNat
-    let goal ← eqnExpr a.getNat b m.getNat n
-    let mvarId ← mkFreshMVarId
-    let mvar ← mkFreshExprMVarWithId mvarId (some goal)
-    let _ ← provePowModM a.getNat b m.getNat mvarId
-    return mvar
+    powerModProof a.getNat b m.getNat
 
+#eval powerMod 2232421124 10027676 121 -- 45
 
-
--- #eval powerMod 2232421124 10027676 121 -- 45
+example : 2232421124 ^ 10027676 % 121 = 45 := by
+  decide +kernel
 
 example : powerMod 2232421124 10027676 121 = 45 := by
   prove_power_mod 2232421124 ^ 10027676 % 121
