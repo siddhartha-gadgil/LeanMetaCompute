@@ -41,7 +41,7 @@ theorem odd_powerMod (a b m n : ℕ) :
     simp [h1]
     rw [hyp]
 
-theorem powerDef (a b m: ℕ): powerMod a b m = a ^ b % m := by
+theorem powerModDef (a b m: ℕ): powerMod a b m = a ^ b % m := by
   if c: b = 0 then
     simp [c, zero_powerMod]
   else
@@ -49,7 +49,7 @@ theorem powerDef (a b m: ℕ): powerMod a b m = a ^ b % m := by
       have h: b = 2 * (b / 2) := by
         rw [Nat.mul_div_cancel' (Nat.dvd_of_mod_eq_zero (by assumption))]
       rw [h]
-      have hyp := powerDef a (b/2) m
+      have hyp := powerModDef a (b/2) m
       let lem := even_powerMod a (b/2) m _ hyp
       rw [lem]
       rw [two_mul, Nat.pow_add, Nat.mul_mod (a ^ (b/2))]
@@ -63,7 +63,7 @@ theorem powerDef (a b m: ℕ): powerMod a b m = a ^ b % m := by
         simp [c'] at lem
         rw [lem]
       rw [h]
-      have hyp := powerDef a (b/2) m
+      have hyp := powerModDef a (b/2) m
       let lem := odd_powerMod a (b/2) m _ hyp
       simp at lem
       rw [lem]

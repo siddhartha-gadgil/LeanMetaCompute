@@ -27,3 +27,5 @@ def testOutput := "
 "
 
 #eval parseFactors|>.run testOutput
+
+#check parseFactors|>.run
