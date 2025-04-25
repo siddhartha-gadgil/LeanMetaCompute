@@ -1,4 +1,4 @@
-import MetaCompute.ParseFactors
+import MetaCompute.Parsers
 import MetaCompute.PowerMod
 import Mathlib
 
@@ -32,8 +32,7 @@ def isPrime (n : Nat) : IO Bool := do
 
 def znPrimRoot (p : Nat) : IO Nat := do
   let out ← queryPari s!"znprimroot({p})"
-  let nStr := ((out.splitOn "(")[1]!.splitOn ",")[0]! |>.trim
-  return nStr.toNat!
+  getPrimitiveRootOf p out
 
 end pari
  open pari
