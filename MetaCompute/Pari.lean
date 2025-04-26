@@ -68,11 +68,11 @@ theorem listProduct_cons (x : Nat × Nat) (xs : List (Nat × Nat)) :
   simp [listProduct]
 
 structure PrattCertificate (p : Nat) where
-  p_ne_one : p ≠ 1
+  p_ne_one : p ≠ 1 := by decide
   a : Nat
   a_pow_pminus_1 : powerMod a (p - 1) p = 1
   factors : List (Nat × Nat)
-  factors_correct : listProduct factors = p - 1
+  factors_correct : listProduct factors = p - 1 := by decide
   a_pow_p_by_d_minus_1 : ∀ pair ∈ factors, powerMod a ((p - 1) / pair.1) p ≠  1
   factors_prime : ∀ pair ∈ factors, Nat.Prime pair.1
 
