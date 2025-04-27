@@ -30,6 +30,9 @@ theorem even_powerMod (a b m n : ℕ) :
     · simp
       rw [hyp]
 
+theorem even_powerMod' (a b m : ℕ) : powerMod a (2 * b) m = ((powerMod a b m) ^ 2) % m := by
+  rw [even_powerMod, pow_two]; rfl
+
 theorem odd_powerMod (a b m n : ℕ) :
   powerMod a b m = n → powerMod a  (2 * b + 1)  m = (a * n * n) % m := by
     intro hyp
@@ -41,6 +44,9 @@ theorem odd_powerMod (a b m n : ℕ) :
       simp [Nat.add_div]
     simp [h1]
     rw [hyp]
+
+theorem odd_powerMod' (a b m : ℕ) : powerMod a (2 * b + 1) m = (a * (powerMod a b m) ^ 2) % m := by
+  rw [odd_powerMod, mul_assoc, pow_two]; rfl
 
 theorem powerModDef (a b m: ℕ): powerMod a b m = a ^ b % m := by
   if c: b = 0 then
@@ -71,7 +77,7 @@ theorem powerModDef (a b m: ℕ): powerMod a b m = a ^ b % m := by
       rw [two_mul, Nat.pow_add, Nat.pow_add, pow_one, mul_assoc, mul_comm]
       simp [Nat.mul_mod, Nat.mod_mod]
 
-open Lean Meta Elab Tactic
+open Lean Meta Elab Tactic Qq
 
 /--
 Expression for the equation `powerMod a b m = n`.
@@ -83,6 +89,37 @@ def eqnExpr (a b m n : ℕ) : MetaM Expr := do
     let nExp := toExpr n
     let lhs ←  mkAppM ``powerMod #[aExp, bExp, mExp]
     mkEq lhs nExp
+
+simproc ↓ powerModIterSquare (powerMod _ _ _) := fun e ↦ do
+  -- let some e ← checkTypeQ e q(ℕ) | return .continue
+  -- let ~q(powerMod $a $b $m) := e | return .continue
+  let_expr powerMod a b m := e | return .continue
+  let some b ← getNatValue? b | return .continue
+  let a : Q(ℕ) := a
+  -- let some a ← Qq.checkTypeQ a q(ℕ) | return .continue
+  let m : Q(ℕ) := m
+  -- let some m ← Qq.checkTypeQ m q(ℕ) | return .continue
+  if b = 0 then
+    return .visit {
+      expr := q(1 % $m),
+      proof? := some q(zero_powerMod $a $m)
+    }
+  else if b % 2 = 0 then
+    let b' : Q(ℕ) := toExpr (b / 2)
+    return .visit {
+      expr := q((powerMod $a $b' $m) ^ 2 % $m),
+      proof? := some q(even_powerMod' $a $b' $m)
+    }
+  else
+    let b' : Q(ℕ) := toExpr (b / 2)
+    return .visit {
+      expr := q(($a * (powerMod $a $b' $m) ^ 2) % $m),
+      proof? := some q(odd_powerMod' $a $b' $m)
+    }
+
+-- example : powerMod 5 8 3 = 1 := by
+--   simp only [powerModIterSquare]
+--   rfl
 
 def powerModProof (a b m : ℕ) : MetaM Expr := do
   let n := powerMod a b m
