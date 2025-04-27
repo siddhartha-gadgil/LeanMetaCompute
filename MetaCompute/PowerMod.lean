@@ -1,5 +1,6 @@
 import Mathlib
 import Lean
+import Qq
 
 def powerMod (a b m : ℕ) : ℕ   :=
   if b = 0 then 1  % m
@@ -112,25 +113,24 @@ def powerModProof (a b m : ℕ) : MetaM Expr := do
       mvarId.assign expr
       return mkMVar mvarId
 
+open Qq in
 /--
 Given a meta variable `mvarId`, assign to it a proof of the equation `powerMod a b m = n`.
 -/
-def provePowModM (a b m : ℕ): MVarId → MetaM Unit :=
+def provePowModM : MVarId → MetaM Unit :=
   fun mvarId =>
     mvarId.withContext do
-    let n := powerMod a b m
-    let expectedType ← eqnExpr a b m n -- `powerMod a b m = n`
     let goalType ← mvarId.getType
-    if !(← isDefEq goalType expectedType) then
-      throwError s!"unexpected type: goal is {← ppExpr goalType}; computation gives {← ppExpr expectedType}"
-    let pf ← powerModProof a b m
+    let ⟨1, ~q(Prop), (tgt : Q(Prop))⟩ ← inferTypeQ goalType | throwError "prove_power_mod: expected the goal to be a proposition"
+    let ~q(powerMod $a $b $m = $n) := tgt | throwError "prove_power_mod: expected the goal to be a powerMod equation"
+    let pf ← powerModProof
+      (← getNatValue? a).get!
+      (← getNatValue? b).get!
+      (← getNatValue? m).get!
     mvarId.assign pf
     return
 
-elab "prove_power_mod"
-    a:num "^" b:num "%" m:num  : tactic =>
-    liftMetaFinishingTactic <| fun mvarId => do
-      provePowModM a.getNat b.getNat m.getNat mvarId
+elab "prove_power_mod" : tactic => liftMetaFinishingTactic provePowModM
 
 elab "power_mod_pf#"
     a:num "^" b:num "%" m:num  : term => do
@@ -147,7 +147,7 @@ example : 2232421124 ^ 10027676 % 121 = 45 := by
   decide +kernel
 
 example : powerMod 2232421124 10027676 121 = 45 := by
-  prove_power_mod 2232421124 ^ 10027676 % 121
+  prove_power_mod
 
 example : powerMod 2232421124 10027676 121 = 45 := by
   have := power_mod_pf# 2232421124 ^ 10027676 % 121
@@ -158,8 +158,16 @@ example : ¬ powerMod 2232421124 10027676 121 = 41 := by
   rw [this]
   simp
 
-macro "power_mod_neq" a:num "^" "(" b':num "/" q:num ")" "%" m:num  : tactic => do
+open Qq in
+elab "power_mod_neq" : tactic => do
+  let tgt ← getMainTarget
+  let ⟨1, ~q(Prop), (tgt : Q(Prop))⟩ ← inferTypeQ tgt | throwError "power_mod_neq: expected the goal to be a proposition"
+  let ~q(powerMod $a ($b' / $q) $m ≠ $n) := tgt | throwError "power_mod_neq: expected the goal to be a powerMod in-equation"
+  let a := Syntax.mkNatLit (← getNatValue? a).get!
+  let b' := Syntax.mkNatLit (← getNatValue? b').get!
+  let q := Syntax.mkNatLit (← getNatValue? q).get!
+  let m := Syntax.mkNatLit (← getNatValue? m).get!
   let tac ← `(tactic|have := power_mod_pf# $a ^ ($b' / $q) % $m)
   let tacs := #[tac, ← `(tactic|rw [this]), ← `(tactic|decide)]
   let tacSeq ← `(tacticSeq| $tacs*)
-  `(tactic| ($tacSeq))
+  evalTactic =<< `(tactic| ($tacSeq))
