@@ -148,7 +148,7 @@ elab "pratt_certificate_for_safe%" p:num "using" a:num : term => unsafe do
   discard <| runTactic p_ne_one <| ← `(tactic|decide)
   discard <| runTactic a_pow_minus_one <| ← `(tactic|prove_power_mod)
   discard <| runTactic factors_correct <| ← `(tactic|decide)
-  discard <| runTactic a_pow_d_by_pminus1 <| ← `(tactic|list_pow_neq)
+  discard <| runTactic a_pow_d_by_pminus1 <| ← `(tactic|forall_in_list power_mod_neq)
   discard <| runTactic factors_prime <| ← `(tactic|simp +decide only)
   return goal
 
