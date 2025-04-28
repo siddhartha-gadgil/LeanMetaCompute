@@ -83,6 +83,14 @@ example : PrattCertificate 19 := {
   factors := [(2, 0), (3, 1)],
 }
 
+example : ∀ n ∈ [7, 3, 5], Nat.Prime n := by
+  simp only [List.mem_cons, List.not_mem_nil, or_false, forall_eq_or_imp, forall_eq]
+  split_ands
+  all_goals norm_num
+
+
+#check or_imp
+
 #check PrattCertificate.mk
 
 #check Lean.Elab.runTactic
