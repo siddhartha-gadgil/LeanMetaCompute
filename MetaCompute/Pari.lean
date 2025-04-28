@@ -68,15 +68,12 @@ theorem listProduct_cons (x : Nat × Nat) (xs : List (Nat × Nat)) :
 structure PrattCertificate (p : Nat) where
   p_ne_one : p ≠ 1 := by decide
   a : Nat
-  a_pow_pminus_1 : powerMod a (p - 1) p = 1 := by
-    simp only [Nat.reduceSub] -- this is needed to reduce `p - 1` to allow it to be picked up by `Qq` matching
-    prove_power_mod
+  a_pow_pminus_1 : powerMod a (p - 1) p = 1 := by prove_power_mod
   factors : List (Nat × Nat)
   factors_correct : listProduct factors = p - 1 := by decide
   a_pow_p_by_d_minus_1 : ∀ pair ∈ factors, powerMod a ((p - 1) / pair.1) p ≠  1 := by
     simp only [factors, List.mem_cons, List.not_mem_nil, or_false, forall_eq_or_imp, forall_eq]
-    simp only [Nat.reduceSub] -- this is needed to reduce `p - 1` to allow it to be picked up by `Qq` matching
-    repeat (all_goals constructor)
+    split_ands
     all_goals power_mod_neq
   factors_prime : ∀ pair ∈ factors, Nat.Prime pair.1 := by
     set_option maxHeartbeats 1000 in simp +decide only

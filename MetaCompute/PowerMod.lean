@@ -182,12 +182,14 @@ def provePowModM : MVarId → MetaM Unit :=
     let goalType ← mvarId.getType
     let some tgt ← checkTypeQ goalType q(Prop) | throwError "prove_power_mod: expected the goal to be a proposition"
     let ~q(powerMod $a $b $m = $n) := tgt | throwError "prove_power_mod: expected the goal to be a powerMod equation"
-    let pf ← powerModProof
-      (← getNatValue? a).get!
-      (← getNatValue? b).get!
-      (← getNatValue? m).get!
+    let pf ← powerModProof (← decodeNatExpr a) (← decodeNatExpr b) (← decodeNatExpr m)
     mvarId.assign pf
     return
+where
+  decodeNatExpr (e : Q(ℕ)) : MetaM ℕ := do
+    let e ← reduce e
+    let some val ← getNatValue? e | throwError "prove_power_mod: expected a natural number for {e}"
+    return val
 
 elab "prove_power_mod" : tactic => liftMetaFinishingTactic provePowModM
 
@@ -226,11 +228,15 @@ elab "power_mod_neq" : tactic => withMainContext do
   let tgt ← getMainTarget
   let some tgt ← checkTypeQ tgt q(Prop) | throwError "power_mod_neq: expected the goal to be a proposition"
   let ~q(powerMod $a ($b' / $q) $m ≠ $n) := tgt | throwError "power_mod_neq: expected the goal to be a powerMod in-equation"
-  let a := Syntax.mkNatLit (← getNatValue? a).get!
-  let b' := Syntax.mkNatLit (← getNatValue? b').get!
-  let q := Syntax.mkNatLit (← getNatValue? q).get!
-  let m := Syntax.mkNatLit (← getNatValue? m).get!
-  -- logInfo m!"power_mod_neq: {a} ^ ({b'} / {q}) % {m} ≠ {n}"
+  let delabNatExpr (e : Q(ℕ)) : MetaM NumLit := do
+    let e ← reduce e
+    let some val ← getNatValue? e | throwError "power_mod_neq: expected a natural number for {e}"
+    return Syntax.mkNatLit val
+  let a ← delabNatExpr a
+  let b' ← delabNatExpr b'
+  let q ← delabNatExpr q
+  let m ← delabNatExpr m
+  logInfo m!"power_mod_neq: {a} ^ ({b'} / {q}) % {m} ≠ {n}"
   let tac ← `(tactic|have := power_mod_pf# $a ^ ($b' / $q) % $m)
   let tacs := #[tac, ← `(tactic|rw [this]), ← `(tactic|decide)]
   let tacSeq ← `(tacticSeq| $tacs*)
