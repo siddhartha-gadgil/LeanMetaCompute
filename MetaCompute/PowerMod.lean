@@ -90,6 +90,28 @@ def eqnExpr (a b m n : ℕ) : MetaM Expr := do
     let lhs ←  mkAppM ``powerMod #[aExp, bExp, mExp]
     mkEq lhs nExp
 
+def eqnExpr? (e: Expr) : MetaM (Option (ℕ × ℕ × ℕ × ℕ)) := do
+  let nat := mkConst ``Nat
+  let aVar ← mkFreshExprMVar (some nat)
+  let bVar ← mkFreshExprMVar (some nat)
+  let mVar ← mkFreshExprMVar (some nat)
+  let nVar ← mkFreshExprMVar (some nat)
+  let lhs ← mkAppM ``powerMod #[aVar, bVar, mVar]
+  let eq ← mkEq lhs nVar
+  if ← isDefEq e eq then
+    let aVar ← reduce aVar
+    let bVar ← reduce bVar
+    let mVar ← reduce mVar
+    let nVar ← reduce nVar
+    return match aVar, bVar, mVar, nVar with
+      | ((Lean.Expr.lit (Lean.Literal.natVal a))), (Lean.Expr.lit (Lean.Literal.natVal b)), (Lean.Expr.lit (Lean.Literal.natVal m)), (Lean.Expr.lit (Lean.Literal.natVal n)) => some (a, b, m, n)
+      | _, _, _, _ => none
+  else
+    return none
+
+#check HPow.hPow
+
+#check Lean.MVarId.isAssigned
 simproc ↓ powerModIterSquare (powerMod _ _ _) := fun e ↦ do
   -- let some e ← checkTypeQ e q(ℕ) | return .continue
   -- let ~q(powerMod $a $b $m) := e | return .continue
@@ -185,6 +207,10 @@ example : 2232421124 ^ 10027676 % 121 = 45 := by
 
 example : powerMod 2232421124 10027676 121 = 45 := by
   prove_power_mod
+
+example : powerMod 2232421124 10027676 121 = 45 := by
+  prove_power_mod
+
 
 example : powerMod 2232421124 10027676 121 = 45 := by
   have := power_mod_pf# 2232421124 ^ 10027676 % 121
