@@ -126,7 +126,7 @@ elab "pratt_certificate_for%" p:num "using" a:num : term => unsafe do
   return cert
 
 #eval pratt_certificate_for% 19 using 2
-#exit
+
 
 theorem List.prime_div_is_factor (l: List (Nat × Nat))
     (prod: listProduct l = n) (primes : ∀ pair ∈ l, Nat.Prime pair.1) :
