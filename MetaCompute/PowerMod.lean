@@ -1,5 +1,6 @@
 import Mathlib
 import Lean
+import Qq
 
 def powerMod (a b m : ℕ) : ℕ   :=
   if b = 0 then 1  % m
@@ -29,6 +30,9 @@ theorem even_powerMod (a b m n : ℕ) :
     · simp
       rw [hyp]
 
+theorem even_powerMod' (a b m : ℕ) : powerMod a (2 * b) m = ((powerMod a b m) ^ 2) % m := by
+  rw [even_powerMod, pow_two]; rfl
+
 theorem odd_powerMod (a b m n : ℕ) :
   powerMod a b m = n → powerMod a  (2 * b + 1)  m = (a * n * n) % m := by
     intro hyp
@@ -40,6 +44,9 @@ theorem odd_powerMod (a b m n : ℕ) :
       simp [Nat.add_div]
     simp [h1]
     rw [hyp]
+
+theorem odd_powerMod' (a b m : ℕ) : powerMod a (2 * b + 1) m = (a * (powerMod a b m) ^ 2) % m := by
+  rw [odd_powerMod, mul_assoc, pow_two]; rfl
 
 theorem powerModDef (a b m: ℕ): powerMod a b m = a ^ b % m := by
   if c: b = 0 then
@@ -70,7 +77,7 @@ theorem powerModDef (a b m: ℕ): powerMod a b m = a ^ b % m := by
       rw [two_mul, Nat.pow_add, Nat.pow_add, pow_one, mul_assoc, mul_comm]
       simp [Nat.mul_mod, Nat.mod_mod]
 
-open Lean Meta Elab Tactic
+open Lean Meta Elab Tactic Qq
 
 /--
 Expression for the equation `powerMod a b m = n`.
@@ -105,6 +112,36 @@ def eqnExpr? (e: Expr) : MetaM (Option (ℕ × ℕ × ℕ × ℕ)) := do
 #check HPow.hPow
 
 #check Lean.MVarId.isAssigned
+simproc ↓ powerModIterSquare (powerMod _ _ _) := fun e ↦ do
+  -- let some e ← checkTypeQ e q(ℕ) | return .continue
+  -- let ~q(powerMod $a $b $m) := e | return .continue
+  let_expr powerMod a b m := e | return .continue
+  let some b ← getNatValue? b | return .continue
+  let a : Q(ℕ) := a
+  -- let some a ← Qq.checkTypeQ a q(ℕ) | return .continue
+  let m : Q(ℕ) := m
+  -- let some m ← Qq.checkTypeQ m q(ℕ) | return .continue
+  if b = 0 then
+    return .visit {
+      expr := q(1 % $m),
+      proof? := some q(zero_powerMod $a $m)
+    }
+  else if b % 2 = 0 then
+    let b' : Q(ℕ) := toExpr (b / 2)
+    return .visit {
+      expr := q((powerMod $a $b' $m) ^ 2 % $m),
+      proof? := some q(even_powerMod' $a $b' $m)
+    }
+  else
+    let b' : Q(ℕ) := toExpr (b / 2)
+    return .visit {
+      expr := q(($a * (powerMod $a $b' $m) ^ 2) % $m),
+      proof? := some q(odd_powerMod' $a $b' $m)
+    }
+
+-- example : powerMod 5 8 3 = 1 := by
+--   simp only [powerModIterSquare]
+--   rfl
 
 def powerModProof (a b m : ℕ) : MetaM Expr := do
   let n := powerMod a b m
@@ -135,33 +172,24 @@ def powerModProof (a b m : ℕ) : MetaM Expr := do
       mvarId.assign expr
       return mkMVar mvarId
 
+open Qq in
 /--
 Given a meta variable `mvarId`, assign to it a proof of the equation `powerMod a b m = n`.
 -/
-def provePowModM (a b m : ℕ): MVarId → MetaM Unit :=
+def provePowModM : MVarId → MetaM Unit :=
   fun mvarId =>
     mvarId.withContext do
-    let n := powerMod a b m
-    let expectedType ← eqnExpr a b m n -- `powerMod a b m = n`
     let goalType ← mvarId.getType
-    if !(← isDefEq goalType expectedType) then
-      throwError s!"unexpected type: goal is {← ppExpr goalType}; computation gives {← ppExpr expectedType}"
-    let pf ← powerModProof a b m
+    let ⟨1, ~q(Prop), (tgt : Q(Prop))⟩ ← inferTypeQ goalType | throwError "prove_power_mod: expected the goal to be a proposition"
+    let ~q(powerMod $a $b $m = $n) := tgt | throwError "prove_power_mod: expected the goal to be a powerMod equation"
+    let pf ← powerModProof
+      (← getNatValue? a).get!
+      (← getNatValue? b).get!
+      (← getNatValue? m).get!
     mvarId.assign pf
     return
 
-#check Lean.Expr.nat?
-
-elab "prove_power_mod"
-    a:num "^" b:num "%" m:num  : tactic =>
-    liftMetaFinishingTactic <| fun mvarId => do
-      provePowModM a.getNat b.getNat m.getNat mvarId
-
-elab "prove_power_mod_goal"  : tactic => do
-    liftMetaFinishingTactic <| fun mvarId => do
-      let some (a, b, m, _) ← eqnExpr? (← mvarId.getType)
-        | throwError "prove_power_mod_goal: expected powerMod equation"
-      provePowModM a b m mvarId
+elab "prove_power_mod" : tactic => liftMetaFinishingTactic provePowModM
 
 elab "power_mod_pf#"
     a:num "^" b:num "%" m:num  : term => do
@@ -178,10 +206,10 @@ example : 2232421124 ^ 10027676 % 121 = 45 := by
   decide +kernel
 
 example : powerMod 2232421124 10027676 121 = 45 := by
-  prove_power_mod 2232421124 ^ 10027676 % 121
+  prove_power_mod
 
 example : powerMod 2232421124 10027676 121 = 45 := by
-  prove_power_mod_goal
+  prove_power_mod
 
 
 example : powerMod 2232421124 10027676 121 = 45 := by
@@ -193,8 +221,16 @@ example : ¬ powerMod 2232421124 10027676 121 = 41 := by
   rw [this]
   simp
 
-macro "power_mod_neq" a:num "^" "(" b':num "/" q:num ")" "%" m:num  : tactic => do
+open Qq in
+elab "power_mod_neq" : tactic => do
+  let tgt ← getMainTarget
+  let ⟨1, ~q(Prop), (tgt : Q(Prop))⟩ ← inferTypeQ tgt | throwError "power_mod_neq: expected the goal to be a proposition"
+  let ~q(powerMod $a ($b' / $q) $m ≠ $n) := tgt | throwError "power_mod_neq: expected the goal to be a powerMod in-equation"
+  let a := Syntax.mkNatLit (← getNatValue? a).get!
+  let b' := Syntax.mkNatLit (← getNatValue? b').get!
+  let q := Syntax.mkNatLit (← getNatValue? q).get!
+  let m := Syntax.mkNatLit (← getNatValue? m).get!
   let tac ← `(tactic|have := power_mod_pf# $a ^ ($b' / $q) % $m)
   let tacs := #[tac, ← `(tactic|rw [this]), ← `(tactic|decide)]
   let tacSeq ← `(tacticSeq| $tacs*)
-  `(tactic| ($tacSeq))
+  evalTactic =<< `(tactic| ($tacSeq))

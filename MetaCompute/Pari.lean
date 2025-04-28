@@ -23,16 +23,14 @@ def queryPari (cmd : String) : IO String := do
 namespace pari
 
 def factors (n : Nat) : IO <| List (Nat × Nat) := do
-  let out ← queryPari s!"factor({n})"
-  IO.ofExcept <| parseFactors|>.run out
+  getFactors <| ← queryPari s!"factor({n})"
 
 def isPrime (n : Nat) : IO Bool := do
   let out ← queryPari s!"isprime({n})"
   return out = "1"
 
 def znPrimRoot (p : Nat) : IO Nat := do
-  let out ← queryPari s!"znprimroot({p})"
-  getPrimitiveRootOf p out
+  getPrimitiveRootOf p <| ← queryPari s!"znprimroot({p})"
 
 end pari
  open pari
@@ -70,10 +68,10 @@ theorem listProduct_cons (x : Nat × Nat) (xs : List (Nat × Nat)) :
 structure PrattCertificate (p : Nat) where
   p_ne_one : p ≠ 1 := by decide
   a : Nat
-  a_pow_pminus_1 : powerMod a (p - 1) p = 1
+  a_pow_pminus_1 : powerMod a (p - 1) p = 1 := by prove_power_mod
   factors : List (Nat × Nat)
   factors_correct : listProduct factors = p - 1 := by decide
-  a_pow_p_by_d_minus_1 : ∀ pair ∈ factors, powerMod a ((p - 1) / pair.1) p ≠  1
+  a_pow_p_by_d_minus_1 : ∀ pair ∈ factors, powerMod a ((p - 1) / pair.1) p ≠  1 := by power_mod_neq
   factors_prime : ∀ pair ∈ factors, Nat.Prime pair.1
 
 theorem List.prime_div_is_factor (l: List (Nat × Nat))
@@ -146,7 +144,7 @@ theorem pratt_certification (p : Nat) (cert : PrattCertificate p) : Nat.Prime p 
   · rw [← ZMod.natCast_mod]
     rw [← Nat.cast_pow]
     nth_rewrite 2 [← Nat.cast_one]
-    rw [ZMod.natCast_eq_natCast_iff, Nat.ModEq.eq_1]
+    rw [ZMod.natCast_eq_natCast_iff, Nat.ModEq]
     have h := cert.a_pow_pminus_1
     rw [powerModDef] at h
     rw [← Nat.pow_mod]
@@ -164,7 +162,7 @@ theorem pratt_certification (p : Nat) (cert : PrattCertificate p) : Nat.Prime p 
     rw [← Nat.cast_pow]
     nth_rewrite 2 [← Nat.cast_one]
     intro contra
-    rw [ZMod.natCast_eq_natCast_iff, Nat.ModEq.eq_1] at contra
+    rw [ZMod.natCast_eq_natCast_iff, Nat.ModEq] at contra
     rw [← Nat.pow_mod] at contra
     rw [contra] at h'
     apply h'
