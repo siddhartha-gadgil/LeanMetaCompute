@@ -45,9 +45,6 @@ theorem odd_powerMod (a b m n : ℕ) :
     simp [h1]
     rw [hyp]
 
-theorem odd_powerMod' (a b m : ℕ) : powerMod a (2 * b + 1) m = (a * (powerMod a b m) ^ 2) % m := by
-  rw [odd_powerMod, mul_assoc, pow_two]; rfl
-
 theorem powerModDef (a b m: ℕ): powerMod a b m = a ^ b % m := by
   if c: b = 0 then
     simp [c, zero_powerMod]
@@ -76,6 +73,9 @@ theorem powerModDef (a b m: ℕ): powerMod a b m = a ^ b % m := by
       rw [lem]
       rw [two_mul, Nat.pow_add, Nat.pow_add, pow_one, mul_assoc, mul_comm]
       simp [Nat.mul_mod, Nat.mod_mod]
+
+theorem odd_powerMod' (a b m : ℕ) : powerMod a (b + 1) m = (a * powerMod a b m) % m := by
+  rw [powerModDef, powerModDef, pow_succ, mul_comm _ a, Nat.mul_mod_mod]
 
 open Lean Meta Elab Tactic Qq
 
@@ -111,13 +111,13 @@ simproc ↓ powerModIterSquare (powerMod _ _ _) := fun e ↦ do
       proof? := some q(even_powerMod' $a $b' $m)
     }
   else
-    let b' : Q(ℕ) := toExpr (b / 2)
+    let b' : Q(ℕ) := toExpr b.pred
     return .visit {
-      expr := q(($a * (powerMod $a $b' $m) ^ 2) % $m),
+      expr := q(($a * powerMod $a $b' $m) % $m),
       proof? := some q(odd_powerMod' $a $b' $m)
     }
 
--- example : powerMod 5 8 3 = 1 := by
+-- example : powerMod 5 9 3 = 2 := by
 --   simp only [powerModIterSquare]
 --   rfl
 
@@ -158,7 +158,7 @@ def provePowModM : MVarId → MetaM Unit :=
   fun mvarId =>
     mvarId.withContext do
     let goalType ← mvarId.getType
-    let ⟨1, ~q(Prop), (tgt : Q(Prop))⟩ ← inferTypeQ goalType | throwError "prove_power_mod: expected the goal to be a proposition"
+    let some tgt ← checkTypeQ goalType q(Prop) | throwError "prove_power_mod: expected the goal to be a proposition"
     let ~q(powerMod $a $b $m = $n) := tgt | throwError "prove_power_mod: expected the goal to be a powerMod equation"
     let pf ← powerModProof
       (← getNatValue? a).get!
@@ -196,14 +196,15 @@ example : ¬ powerMod 2232421124 10027676 121 = 41 := by
   simp
 
 open Qq in
-elab "power_mod_neq" : tactic => do
+elab "power_mod_neq" : tactic => withMainContext do
   let tgt ← getMainTarget
-  let ⟨1, ~q(Prop), (tgt : Q(Prop))⟩ ← inferTypeQ tgt | throwError "power_mod_neq: expected the goal to be a proposition"
+  let some tgt ← checkTypeQ tgt q(Prop) | throwError "power_mod_neq: expected the goal to be a proposition"
   let ~q(powerMod $a ($b' / $q) $m ≠ $n) := tgt | throwError "power_mod_neq: expected the goal to be a powerMod in-equation"
   let a := Syntax.mkNatLit (← getNatValue? a).get!
   let b' := Syntax.mkNatLit (← getNatValue? b').get!
   let q := Syntax.mkNatLit (← getNatValue? q).get!
   let m := Syntax.mkNatLit (← getNatValue? m).get!
+  -- logInfo m!"power_mod_neq: {a} ^ ({b'} / {q}) % {m} ≠ {n}"
   let tac ← `(tactic|have := power_mod_pf# $a ^ ($b' / $q) % $m)
   let tacs := #[tac, ← `(tactic|rw [this]), ← `(tactic|decide)]
   let tacSeq ← `(tacticSeq| $tacs*)
