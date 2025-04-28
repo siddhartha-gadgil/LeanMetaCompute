@@ -65,16 +65,16 @@ theorem listProduct_cons (x : Nat × Nat) (xs : List (Nat × Nat)) :
   listProduct (x :: xs) = x.1 ^ (x.2 + 1) * listProduct xs := by
   simp [listProduct]
 
+macro "list_pow_neq" : tactic => do
+  `(tactic| (simp only [factors, List.mem_cons, List.not_mem_nil, or_false, forall_eq_or_imp, forall_eq]; split_ands ; all_goals power_mod_neq))
+
 structure PrattCertificate (p : Nat) where
   p_ne_one : p ≠ 1 := by decide
   a : Nat
   a_pow_pminus_1 : powerMod a (p - 1) p = 1 := by prove_power_mod
   factors : List (Nat × Nat)
   factors_correct : listProduct factors = p - 1 := by decide
-  a_pow_p_by_d_minus_1 : ∀ pair ∈ factors, powerMod a ((p - 1) / pair.1) p ≠  1 := by
-    simp only [factors, List.mem_cons, List.not_mem_nil, or_false, forall_eq_or_imp, forall_eq]
-    split_ands
-    all_goals power_mod_neq
+  a_pow_p_by_d_minus_1 : ∀ pair ∈ factors, powerMod a ((p - 1) / pair.1) p ≠  1 := by list_pow_neq
   factors_prime : ∀ pair ∈ factors, Nat.Prime pair.1 := by
     set_option maxHeartbeats 1000 in simp +decide only
 
@@ -82,6 +82,8 @@ example : PrattCertificate 19 := {
   a := 2,
   factors := [(2, 0), (3, 1)],
 }
+
+#check Lean.Elab.runTactic
 
 theorem List.prime_div_is_factor (l: List (Nat × Nat))
     (prod: listProduct l = n) (primes : ∀ pair ∈ l, Nat.Prime pair.1) :
