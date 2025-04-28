@@ -69,10 +69,10 @@ macro "list_pow_neq" : tactic => do
   `(tactic| (simp only [factors, List.mem_cons, List.not_mem_nil, or_false, forall_eq_or_imp, forall_eq]; split_ands ; all_goals power_mod_neq))
 
 structure PrattCertificate (p : Nat) where
-  p_ne_one : p ≠ 1 := by decide
   a : Nat
-  a_pow_pminus_1 : powerMod a (p - 1) p = 1 := by prove_power_mod
   factors : List (Nat × Nat)
+  p_ne_one : p ≠ 1 := by decide
+  a_pow_pminus_1 : powerMod a (p - 1) p = 1 := by prove_power_mod
   factors_correct : listProduct factors = p - 1 := by decide
   a_pow_p_by_d_minus_1 : ∀ pair ∈ factors, powerMod a ((p - 1) / pair.1) p ≠  1 := by list_pow_neq
   factors_prime : ∀ pair ∈ factors, Nat.Prime pair.1 := by
@@ -82,6 +82,8 @@ example : PrattCertificate 19 := {
   a := 2,
   factors := [(2, 0), (3, 1)],
 }
+
+#check PrattCertificate.mk
 
 #check Lean.Elab.runTactic
 
