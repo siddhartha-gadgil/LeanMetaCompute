@@ -66,7 +66,7 @@ theorem listProduct_cons (x : Nat × Nat) (xs : List (Nat × Nat)) :
   simp [listProduct]
 
 macro "forall_in_list" tac:tactic : tactic => do
-  `(tactic| (simp! only [List.mem_cons, List.not_mem_nil, or_false, forall_eq_or_imp, forall_eq]; split_ands; all_goals $tac:tactic))
+  `(tactic| (simp! only [List.mem_cons, List.not_mem_nil, or_false, forall_eq_or_imp, forall_eq]; split_ands; all_goals (try $tac:tactic)))
 
 structure PrattCertificate (p : Nat) where
   a : Nat
