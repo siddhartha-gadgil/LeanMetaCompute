@@ -65,8 +65,8 @@ theorem listProduct_cons (x : Nat × Nat) (xs : List (Nat × Nat)) :
   listProduct (x :: xs) = x.1 ^ (x.2 + 1) * listProduct xs := by
   simp [listProduct]
 
-macro "list_pow_neq" : tactic => do
-  `(tactic| (simp! only [List.mem_cons, List.not_mem_nil, or_false, forall_eq_or_imp, forall_eq]; split_ands; all_goals power_mod_neq))
+macro "forall_in_list" tac:tactic : tactic => do
+  `(tactic| (simp! only [List.mem_cons, List.not_mem_nil, or_false, forall_eq_or_imp, forall_eq]; split_ands; all_goals $tac:tactic))
 
 structure PrattCertificate (p : Nat) where
   a : Nat
@@ -74,35 +74,37 @@ structure PrattCertificate (p : Nat) where
   p_ne_one : p ≠ 1 := by decide
   a_pow_pminus_1 : powerMod a (p - 1) p = 1 := by prove_power_mod
   factors_correct : listProduct factors = p - 1 := by decide
-  a_pow_p_by_d_minus_1 : ∀ pair ∈ factors, powerMod a ((p - 1) / pair.1) p ≠  1 := by list_pow_neq
+  a_pow_p_by_d_minus_1 : ∀ pair ∈ factors, powerMod a ((p - 1) / pair.1) p ≠  1 := by
+    forall_in_list power_mod_neq
   factors_prime : ∀ pair ∈ factors, Nat.Prime pair.1 := by
-    set_option maxHeartbeats 1000 in simp +decide only
+    forall_in_list (set_option maxHeartbeats 1000 in decide)
 
 example : PrattCertificate 19 := {
   a := 2,
   factors := [(2, 0), (3, 1)],
 }
 
-#print PrattCertificate.mk
-#print PrattCertificate.p_ne_one._autoParam
-
-
 open Lean Elab Meta Term Tactic
 
-#check evalTactic
-#check synthesizeUsingTactic
-#check autoParam
+#check Syntax.isOfKind (k := `term)
 
+/-- -/
 unsafe def Lean.Expr.applyAutoParamArgs (e : Expr) : TacticM Expr := do
-  let eType ← whnf (← inferType e)
-  match eType with
-  | .forallE _ (.app (.app (.const ``autoParam [u]) α) (.const val _)) _ _ =>
-    let stx ← evalConst Syntax val
-    let (sideGoals, trm) ← synthesizeUsingTactic (u := u) α stx
-    appendGoals sideGoals
-    let eNew := mkApp e trm
-    applyAutoParamArgs eNew
-  | _ => return e
+  let (mvars, _, _) ← forallMetaTelescope (← inferType e)
+  for mvar in mvars do
+    if let .app (.app (.const ``autoParam _) α) val ← inferType mvar then do
+      let stx ← evalExpr Syntax (mkConst ``Syntax) val
+      if stx.isOfKind `term then
+        _ ← isDefEq mvar (← Term.elabTerm stx α)
+      let goals ← Tactic.run mvar.mvarId! (evalTactic stx)
+      appendGoals goals
+  let e := mkAppN e (← mvars.mapM instantiateMVars)
+  return (← abstractMVars e).expr
+
+/-- Apply the given arguments to the declaration with name `constName` and
+    synthesize as many of the remaining arguments as possible using the `autoParam` information. -/
+unsafe def Lean.Meta.Expr.mkAppAutoM (constName : Name) (args : Array Expr) : TacticM Expr := do
+  mkAppN (mkConst constName) args |>.applyAutoParamArgs
 
 open Lean Elab Meta in
 elab "pratt_certificate_for%" p:num "using" a:num : term => unsafe do
@@ -112,9 +114,6 @@ elab "pratt_certificate_for%" p:num "using" a:num : term => unsafe do
   let cert := mkApp3 (mkConst ``PrattCertificate.mk) (toExpr p) (toExpr a) (toExpr factors)
   let (cert, goals) ← cert.applyAutoParamArgs |>.run { elaborator := .anonymous } |>.run { goals := []}
   return cert
-
-#eval pratt_certificate_for% 19 using 2
-#exit
 
 theorem List.prime_div_is_factor (l: List (Nat × Nat))
     (prod: listProduct l = n) (primes : ∀ pair ∈ l, Nat.Prime pair.1) :
@@ -210,6 +209,22 @@ theorem pratt_certification (p : Nat) (cert : PrattCertificate p) : Nat.Prime p 
     apply h'
     apply Nat.one_mod_eq_one.2
     exact cert.p_ne_one
+
+elab "prime" : tactic => unsafe withMainContext do
+  let_expr Nat.Prime pE := ← getMainTarget | throwError "target is not of the form `Nat.Prime _`"
+  let some p ← getNatValue? (← reduce pE) | throwError "Failed to obtain a natural number from {pE}"
+  let a ← znPrimRoot p
+  let factors := (← factors (p - 1)) |>.map fun (q, e) ↦ (q, e - 1)
+  let cert ← Expr.mkAppAutoM ``PrattCertificate.mk #[pE, toExpr a, toExpr factors]
+  let primeProof ← mkAppM ``pratt_certification #[pE, cert]
+  -- unless ← isDefEq primeProof (.mvar (← getMainGoal)) do
+  --   throwError "Failed to prove that {p} is prime"
+  (← getMainGoal).assign primeProof
+  pruneSolvedGoals
+
+example : Nat.Prime 19 := by
+  prime
+
 
 #check Nat.one_mod_eq_one
 
