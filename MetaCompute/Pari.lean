@@ -66,7 +66,7 @@ theorem listProduct_cons (x : Nat × Nat) (xs : List (Nat × Nat)) :
   simp [listProduct]
 
 macro "list_pow_neq" : tactic => do
-  `(tactic| (simp only [factors, List.mem_cons, List.not_mem_nil, or_false, forall_eq_or_imp, forall_eq]; split_ands ; all_goals power_mod_neq))
+  `(tactic| (simp! only [List.mem_cons, List.not_mem_nil, or_false, forall_eq_or_imp, forall_eq]; split_ands; all_goals power_mod_neq))
 
 structure PrattCertificate (p : Nat) where
   a : Nat
@@ -83,9 +83,38 @@ example : PrattCertificate 19 := {
   factors := [(2, 0), (3, 1)],
 }
 
-#check PrattCertificate.mk
+#print PrattCertificate.mk
+#print PrattCertificate.p_ne_one._autoParam
 
-#check Lean.Elab.runTactic
+
+open Lean Elab Meta Term Tactic
+
+#check evalTactic
+#check synthesizeUsingTactic
+#check autoParam
+
+unsafe def Lean.Expr.applyAutoParamArgs (e : Expr) : TacticM Expr := do
+  let eType ← whnf (← inferType e)
+  match eType with
+  | .forallE _ (.app (.app (.const ``autoParam [u]) α) (.const val _)) _ _ =>
+    let stx ← evalConst Syntax val
+    let (sideGoals, trm) ← synthesizeUsingTactic (u := u) α stx
+    appendGoals sideGoals
+    let eNew := mkApp e trm
+    applyAutoParamArgs eNew
+  | _ => return e
+
+open Lean Elab Meta in
+elab "pratt_certificate_for%" p:num "using" a:num : term => unsafe do
+  let p := p.getNat
+  let a := a.getNat
+  let factors ← factors (p - 1)
+  let cert := mkApp3 (mkConst ``PrattCertificate.mk) (toExpr p) (toExpr a) (toExpr factors)
+  let (cert, goals) ← cert.applyAutoParamArgs |>.run { elaborator := .anonymous } |>.run { goals := []}
+  return cert
+
+#eval pratt_certificate_for% 19 using 2
+#exit
 
 theorem List.prime_div_is_factor (l: List (Nat × Nat))
     (prod: listProduct l = n) (primes : ∀ pair ∈ l, Nat.Prime pair.1) :
