@@ -127,6 +127,27 @@ elab "pratt_certificate_for%" p:num "using" a:num : term => unsafe do
 
 #eval pratt_certificate_for% 19 using 2
 
+open Lean Elab Meta Term in
+elab "pratt_certificate_for_safe%" p:num "using" a:num : term => unsafe do
+  let pExpr ← elabTerm p (mkConst ``Nat)
+  let tgt ← mkAppM ``PrattCertificate #[pExpr]
+  let goal ← mkFreshExprMVar (some tgt)
+  let p := p.getNat
+  let a := a.getNat
+  let factors ← factors (p - 1)
+  let factors := factors.map (fun (x : Nat × Nat) => (x.1, x.2 - 1))
+  let cert := mkApp3 (mkConst ``PrattCertificate.mk) (toExpr p) (toExpr a) (toExpr factors)
+  let [p_ne_one, a_pow_minus_one, factors_correct, a_pow_d_by_pminus1, factors_prime] ← goal.mvarId!.apply cert | throwError
+    "pratt_certificate_for_safe%: expected 5 arguments"
+  discard <| runTactic p_ne_one <| ← `(tactic|decide)
+  discard <| runTactic a_pow_minus_one <| ← `(tactic|prove_power_mod)
+  discard <| runTactic factors_correct <| ← `(tactic|decide)
+  discard <| runTactic a_pow_d_by_pminus1 <| ← `(tactic|list_pow_neq)
+  discard <| runTactic factors_prime <| ← `(tactic|simp +decide only)
+  return goal
+
+#eval pratt_certificate_for_safe% 19 using 2
+
 
 theorem List.prime_div_is_factor (l: List (Nat × Nat))
     (prod: listProduct l = n) (primes : ∀ pair ∈ l, Nat.Prime pair.1) :
