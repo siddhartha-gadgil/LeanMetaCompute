@@ -120,6 +120,7 @@ elab "pratt_certificate_for%" p:num "using" a:num : term => unsafe do
   let p := p.getNat
   let a := a.getNat
   let factors ← factors (p - 1)
+  let factors := factors.map (fun (x : Nat × Nat) => (x.1, x.2 - 1))
   let cert := mkApp3 (mkConst ``PrattCertificate.mk) (toExpr p) (toExpr a) (toExpr factors)
   let (cert, goals) ← cert.applyAutoParamArgs |>.run { elaborator := .anonymous } |>.run { goals := []}
   return cert
