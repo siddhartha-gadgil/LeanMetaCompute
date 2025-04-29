@@ -77,11 +77,14 @@ structure PrattCertificate (p : Nat) where
   a_pow_p_by_d_minus_1 : ∀ pair ∈ factors, powerMod a ((p - 1) / pair.1) p ≠  1 := by
     forall_in_list power_mod_neq
   factors_prime : ∀ pair ∈ factors, Nat.Prime pair.1 := by
-    forall_in_list (set_option maxHeartbeats 1000 in decide)
+    forall_in_list (set_option maxHeartbeats 100 in skip)
 
-example : PrattCertificate 19 := {
+#count_heartbeats in
+example : PrattCertificate 48611 := {
   a := 2,
-  factors := [(2, 0), (3, 1)],
+  factors := [(2, 0), (5, 0), (4861, 0)],
+  factors_prime := by
+    forall_in_list norm_num
 }
 
 
@@ -93,45 +96,28 @@ example : ∀ n ∈ [7, 3, 5], Nat.Prime n := by
 
 #check or_imp
 
-#check PrattCertificate.mk
-
-#print PrattCertificate.mk
-#print PrattCertificate.p_ne_one._autoParam
-
-
 open Lean Elab Meta Term Tactic
 
-#check Syntax.isOfKind (k := `term)
-
-/-- -/
 unsafe def Lean.Expr.applyAutoParamArgs (e : Expr) : TacticM Expr := do
   let (mvars, _, _) ← forallMetaTelescope (← inferType e)
   for mvar in mvars do
     if let .app (.app (.const ``autoParam _) α) val ← inferType mvar then do
       let stx ← evalExpr Syntax (mkConst ``Syntax) val
       if stx.isOfKind `term then
-        _ ← isDefEq mvar (← Term.elabTerm stx α)
-      let goals ← Tactic.run mvar.mvarId! (evalTactic stx)
-      appendGoals goals
-  let e := mkAppN e (← mvars.mapM instantiateMVars)
-  return (← abstractMVars e).expr
+        discard <| isDefEq mvar (← Term.elabTerm stx α)
+      else if stx.isOfKind `tactic || stx.isOfKind ``Parser.Tactic.tacticSeq then
+        let goals ← Tactic.run mvar.mvarId! (evalTactic stx)
+        appendGoals goals
+      else
+        logWarning m!"Unknown syntax kind {stx.getKind} of {stx}"
+  let mvars : Array Expr ← mvars.mapM instantiateMVars
+  let e := mkAppN e mvars
+  mkLambdaFVars (mvars.filter Expr.isMVar) e
 
 /-- Apply the given arguments to the declaration with name `constName` and
     synthesize as many of the remaining arguments as possible using the `autoParam` information. -/
 unsafe def Lean.Meta.Expr.mkAppAutoM (constName : Name) (args : Array Expr) : TacticM Expr := do
   mkAppN (mkConst constName) args |>.applyAutoParamArgs
-
-open Lean Elab Meta in
-elab "pratt_certificate_for%" p:num "using" a:num : term => unsafe do
-  let p := p.getNat
-  let a := a.getNat
-  let factors ← factors (p - 1)
-  let factors := factors.map (fun (x : Nat × Nat) => (x.1, x.2 - 1))
-  let cert := mkApp3 (mkConst ``PrattCertificate.mk) (toExpr p) (toExpr a) (toExpr factors)
-  let (cert, goals) ← cert.applyAutoParamArgs |>.run { elaborator := .anonymous } |>.run { goals := []}
-  return cert
-
-#eval pratt_certificate_for% 19 using 2
 
 open Lean Elab Meta Term in
 elab "pratt_certificate_for_safe%" p:num "using" a:num : term => unsafe do
@@ -254,17 +240,20 @@ elab "prime" : tactic => unsafe withMainContext do
   let_expr Nat.Prime pE := ← getMainTarget | throwError "target is not of the form `Nat.Prime _`"
   let some p ← getNatValue? (← reduce pE) | throwError "Failed to obtain a natural number from {pE}"
   let a ← znPrimRoot p
+  logInfo m!"Primitive root: {a}"
   let factors := (← factors (p - 1)) |>.map fun (q, e) ↦ (q, e - 1)
+  logInfo m!"Factors: {factors}"
   let cert ← Expr.mkAppAutoM ``PrattCertificate.mk #[pE, toExpr a, toExpr factors]
   let primeProof ← mkAppM ``pratt_certification #[pE, cert]
-  -- unless ← isDefEq primeProof (.mvar (← getMainGoal)) do
-  --   throwError "Failed to prove that {p} is prime"
-  (← getMainGoal).assign primeProof
+  (← getMainGoal).assignIfDefEq primeProof
   pruneSolvedGoals
 
-example : Nat.Prime 19 := by
+example : Nat.Prime 48611 := by
   prime
-
+  · decide
+  · decide
+  · prime
+    all_goals norm_num
 
 #check Nat.one_mod_eq_one
 
