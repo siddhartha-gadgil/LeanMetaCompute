@@ -116,7 +116,7 @@ unsafe def Lean.Expr.applyAutoParamArgs (e : Expr) : TacticM Expr := do
 
 /-- Apply the given arguments to the declaration with name `constName` and
     synthesize as many of the remaining arguments as possible using the `autoParam` information. -/
-unsafe def Lean.Meta.Expr.mkAppAutoM (constName : Name) (args : Array Expr) : TacticM Expr := do
+unsafe def Lean.Meta.mkAppAutoM (constName : Name) (args : Array Expr) : TacticM Expr := do
   mkAppN (mkConst constName) args |>.applyAutoParamArgs
 
 open Lean Elab Meta Term in
@@ -243,7 +243,7 @@ elab "prime" : tactic => unsafe withMainContext do
   logInfo m!"Primitive root: {a}"
   let factors := (← factors (p - 1)) |>.map fun (q, e) ↦ (q, e - 1)
   logInfo m!"Factors: {factors}"
-  let cert ← Expr.mkAppAutoM ``PrattCertificate.mk #[pE, toExpr a, toExpr factors]
+  let cert ← mkAppAutoM ``PrattCertificate.mk #[pE, toExpr a, toExpr factors]
   let primeProof ← mkAppM ``pratt_certification #[pE, cert]
   (← getMainGoal).assignIfDefEq primeProof
   pruneSolvedGoals
