@@ -68,6 +68,14 @@ theorem listProduct_cons (x : Nat × Nat) (xs : List (Nat × Nat)) :
 macro "forall_in_list" tac:tactic : tactic => do
   `(tactic| (simp! only [List.mem_cons, List.not_mem_nil, or_false, forall_eq_or_imp, forall_eq]; split_ands; all_goals (try $tac:tactic)))
 
+open Parser Lean Meta Elab Tactic in
+elab "small_prime" max?:(num)? : tactic => withMainContext do
+  let_expr Nat.Prime pE := ← getMainTarget | throwError "target is not of the form `Nat.Prime _`"
+  let some p ← getNatValue? (← reduce pE) | throwError "Failed to obtain a natural number from {pE}"
+  let max := max?.map (fun x => x.getNat) |>.getD 100
+  if p < max then
+    evalTactic <| ← `(tactic|norm_num)
+
 structure PrattCertificate (p : Nat) where
   a : Nat
   factors : List (Nat × Nat)
@@ -77,7 +85,7 @@ structure PrattCertificate (p : Nat) where
   a_pow_p_by_d_minus_1 : ∀ pair ∈ factors, powerMod a ((p - 1) / pair.1) p ≠  1 := by
     forall_in_list power_mod_neq
   factors_prime : ∀ pair ∈ factors, Nat.Prime pair.1 := by
-    forall_in_list (set_option maxHeartbeats 100 in skip)
+    forall_in_list (set_option maxHeartbeats 100 in small_prime)
 
 #count_heartbeats in
 example : PrattCertificate 48611 := {
@@ -239,6 +247,9 @@ theorem pratt_certification (p : Nat) (cert : PrattCertificate p) : Nat.Prime p 
 elab "prime" : tactic => unsafe withMainContext do
   let_expr Nat.Prime pE := ← getMainTarget | throwError "target is not of the form `Nat.Prime _`"
   let some p ← getNatValue? (← reduce pE) | throwError "Failed to obtain a natural number from {pE}"
+  let check ← queryPari s!"isprime({p})"
+  unless check = "1" do
+    throwError "{pE} is not a prime (according to Pari)"
   let a ← znPrimRoot p
   logInfo m!"Primitive root: {a}"
   let factors := (← factors (p - 1)) |>.map fun (q, e) ↦ (q, e - 1)
@@ -250,10 +261,10 @@ elab "prime" : tactic => unsafe withMainContext do
 
 example : Nat.Prime 48611 := by
   prime
-  · decide
-  · decide
   · prime
-    all_goals norm_num
+
+
+example : Nat.Prime 85083351022467190124442353598696803287939269665617 := by repeat (prime)
 
 #check Nat.one_mod_eq_one
 
