@@ -247,6 +247,9 @@ theorem pratt_certification (p : Nat) (cert : PrattCertificate p) : Nat.Prime p 
 elab "prime" : tactic => unsafe withMainContext do
   let_expr Nat.Prime pE := ← getMainTarget | throwError "target is not of the form `Nat.Prime _`"
   let some p ← getNatValue? (← reduce pE) | throwError "Failed to obtain a natural number from {pE}"
+  let check ← queryPari s!"isprime({p})"
+  unless check = "1" do
+    throwError "{pE} is not a prime (according to Pari)"
   let a ← znPrimRoot p
   logInfo m!"Primitive root: {a}"
   let factors := (← factors (p - 1)) |>.map fun (q, e) ↦ (q, e - 1)
