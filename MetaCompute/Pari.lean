@@ -77,7 +77,7 @@ structure PrattCertificate (p : Nat) where
   a_pow_p_by_d_minus_1 : ∀ pair ∈ factors, powerMod a ((p - 1) / pair.1) p ≠  1 := by
     forall_in_list power_mod_neq
   factors_prime : ∀ pair ∈ factors, Nat.Prime pair.1 := by
-    forall_in_list (set_option maxHeartbeats 100 in try (norm_num))
+    forall_in_list (set_option maxHeartbeats 100 in skip)
 
 #count_heartbeats in
 example : PrattCertificate 48611 := {
@@ -248,7 +248,12 @@ elab "prime" : tactic => unsafe withMainContext do
   (← getMainGoal).assignIfDefEq primeProof
   pruneSolvedGoals
 
-example : Nat.Prime 48611 := by prime
+example : Nat.Prime 48611 := by
+  prime
+  · decide
+  · decide
+  · prime
+    all_goals norm_num
 
 #check Nat.one_mod_eq_one
 
