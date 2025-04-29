@@ -264,6 +264,8 @@ example : Nat.Prime 48611 := by
   · prime
 
 
+example : Nat.Prime 85083351022467190124442353598696803287939269665617 := by repeat (prime)
+
 #check Nat.one_mod_eq_one
 
 #check Int.ModEq.eq
