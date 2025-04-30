@@ -159,28 +159,6 @@ elab "pratt_certificate_for_safe%" p:num "using" a:num : term => do
 
 #eval pratt_certificate_for_safe% 19 using 2
 
--- For experiments only, purge later
-elab "pratt_certificate_safe%" p:num "using" a:num "[" fctrs:exp_pair,* "]" : term => do
-  let pExpr ← elabTerm p (mkConst ``Nat)
-  let tgt ← mkAppM ``PrattCertificate #[pExpr]
-  let goal ← mkFreshExprMVar (some tgt)
-  let p := p.getNat
-  let a := a.getNat
-  let factors ← fctrs.getElems.toList.mapM
-    fun pair => fromExpPair pair
-  let factors := factors.map (fun (x : Nat × Nat) => (x.1, x.2 - 1))
-  let cert := mkApp3 (mkConst ``PrattCertificate.mk) (toExpr p) (toExpr a) (toExpr factors)
-  let [p_ne_one, a_pow_minus_one, factors_correct, a_pow_d_by_pminus1, factors_prime] ← goal.mvarId!.apply cert | throwError
-    "pratt_certificate_for_safe%: expected 5 arguments"
-  discard <| runTactic p_ne_one <| ← `(tactic|decide)
-  discard <| runTactic a_pow_minus_one <| ← `(tactic|prove_power_mod)
-  discard <| runTactic factors_correct <| ← `(tactic|decide)
-  discard <| runTactic a_pow_d_by_pminus1 <| ← `(tactic|forall_in_list power_mod_neq)
-  discard <| runTactic factors_prime <| ← `(tactic|simp +decide only)
-  return goal
-
-#eval pratt_certificate_safe% 19 using 2 [ (2 ^ 1), (3 ^ 2) ]
-
 
 theorem List.prime_div_is_factor (l: List (Nat × Nat))
     (prod: listProduct l = n) (primes : ∀ pair ∈ l, Nat.Prime pair.1) :
@@ -226,13 +204,6 @@ theorem List.prime_div_is_factor (l: List (Nat × Nat))
         right
         assumption
 
-#check Nat.Prime.dvd_of_dvd_pow
-
-#check Nat.Prime.dvd_mul
-#check Nat.prime_one_false
-#check Nat.prime_dvd_prime_iff_eq
-
-#check List.foldl_cons
 
 theorem PrattCertificate.prime_dvd_is_factor {p : Nat} (cert : PrattCertificate p) :
   ∀ (q : ℕ), q ∣ p - 1 → Nat.Prime q →
@@ -241,11 +212,6 @@ theorem PrattCertificate.prime_dvd_is_factor {p : Nat} (cert : PrattCertificate 
   apply
     cert.factors.prime_div_is_factor cert.factors_correct cert.factors_prime q q_div_pminus1 prime_q
 
-/-
-lucas_primality (p : ℕ) (a : ZMod p) (ha : a ^ (p - 1) = 1)
-  (hd : ∀ (q : ℕ), Nat.Prime q → q ∣ p - 1 → a ^ ((p - 1) / q) ≠ 1) : Nat.Prime p
--/
-#check lucas_primality
 
 theorem pratt_certification (p : Nat) (cert : PrattCertificate p) : Nat.Prime p := by
   apply lucas_primality p cert.a
