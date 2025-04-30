@@ -298,9 +298,17 @@ example : Nat.Prime 48611 := by
 
 example : Nat.Prime 85083351022467190124442353598696803287939269665617 := by repeat prime
 
+def primeProp? (expr : Expr) : MetaM (Option Expr) := do
+  let e ← mkFreshExprMVar (some <| mkConst ``Nat)
+  let expr' ← mkAppM ``Nat.Prime #[e]
+  if ← isDefEq expr expr' then
+    return some e
+  else
+    return none
+
 
 def prattReduce (a : ℕ) (factors : List (ℕ × ℕ)) (goal : MVarId)  : MetaM <| List MVarId := goal.withContext do
-  let_expr Nat.Prime pE := ←  goal.getType | throwError "target is not of the form `Nat.Prime _`"
+  let some pE  ← primeProp? (←   goal.getType) | throwError "target is not of the form `Nat.Prime _`"
   let some p ← getNatValue? (← reduce pE) | throwError "Failed to obtain a natural number from {pE}"
   let tgt ← mkAppM ``PrattCertificate #[pE]
   let prattGoal ← mkFreshExprMVar (some tgt)
@@ -313,14 +321,14 @@ def prattReduce (a : ℕ) (factors : List (ℕ × ℕ)) (goal : MVarId)  : MetaM
   discard <| runTactic a_pow_minus_one <| ← `(tactic|prove_power_mod)
   discard <| runTactic factors_correct <| ← `(tactic|decide)
   discard <| runTactic a_pow_d_by_pminus1 <| ← `(tactic|forall_in_list power_mod_neq)
-  let (goals, _) ←  runTactic factors_prime <| ← `(tactic| forall_in_list skip)
+  let (goals, _) ←  runTactic factors_prime <| ← `(tactic| (simp! only [List.mem_cons, List.not_mem_nil, or_false, forall_eq_or_imp, forall_eq]; split_ands))
   let fullCert ←  mkAppM ``PrattCertificate.mk (#[toExpr a, toExpr factors] ++ (args.toArray.map mkMVar))
   let primeProof ← mkAppM ``pratt_certification #[pE, fullCert]
   goal.assign primeProof
   return goals
 
 
-elab "pratt_step"  a:num "[" fctrs:exp_pair,* "]" : tactic  => withMainContext do
+elab "pratt_step"  a:num ppSpace "[" fctrs:exp_pair,* "]" : tactic  => withMainContext do
   let a := a.getNat
   let factors ← fctrs.getElems.toList.mapM
     fun pair => fromExpPair pair
@@ -333,10 +341,11 @@ example : Nat.Prime 19 := by
   · decide
 
 
+
 partial def primeScript (goal : MVarId) :
   MetaM <| List Syntax.Tactic := goal.withContext do
   let tgt ← reduce (← goal.getType)
-  let_expr Nat.Prime pE :=   tgt | throwError s!"target {← ppExpr tgt} is not of the form `Nat.Prime _`"
+  let some pE :=  ← primeProp? tgt | throwError s!"target {← ppExpr tgt} ({tgt}) is not of the form `Nat.Prime _`"
   let some p ← getNatValue? (← reduce pE) | throwError "Failed to obtain a natural number from {pE}"
   if p < 100 then
     unless Nat.Prime p do
@@ -348,20 +357,18 @@ partial def primeScript (goal : MVarId) :
     unless check = "1" do
       throwError "{pE} is not a prime (according to Pari)"
     let a ← znPrimRoot p
-    logInfo m!"Primitive root: {a}"
+    -- logInfo m!"Primitive root: {a}"
     let factors := (← factors (p - 1))
-    logInfo m!"Factors: {factors}"
+    -- logInfo m!"Factors: {factors}"
     let newGoals ← prattReduce a factors goal
     let aStx := Syntax.mkNumLit (toString a)
     let factorStxs ←  factors.mapM (fun (x : Nat × Nat) => toExpPair x)
     let factorStxs := factorStxs.toArray
-    logInfo m!"factorStxs: {factorStxs}"
     let head ← `(tactic|pratt_step $aStx [$factorStxs,*])
     let tail ← newGoals.mapM fun goal => do
       let stx ← primeScript goal
       let stx := stx.toArray
       `(tactic| · $stx*)
-    logInfo m!"head: {head}"
     return head :: tail
 
 syntax (name := pratt_tac) "pratt" : tactic
@@ -379,5 +386,76 @@ def prattImpl : Tactic := fun stx => withMainContext do
 
 #check prattImpl
 
-example : Nat.Prime 191 := by
-  pratt
+example : Nat.Prime 85083351022467190124442353598696803287939269665617 := by
+  · pratt_step 5 [(2^4), (3^1), (13^1), (47^1), (59^1), (547^1), (48527^1), (51347^1), (1019357^1),
+      (35391418775811268295338933^1)]
+    · norm_num
+    · norm_num
+    · norm_num
+    · norm_num
+    · norm_num
+    · pratt_step 2 [(2^1), (3^1), (7^1), (13^1)]
+      · norm_num
+      · norm_num
+      · norm_num
+      · norm_num
+    · pratt_step 5 [(2^1), (19^1), (1277^1)]
+      · norm_num
+      · norm_num
+      · pratt_step 2 [(2^2), (11^1), (29^1)]
+        · norm_num
+        · norm_num
+        · norm_num
+    · pratt_step 2 [(2^1), (25673^1)]
+      · norm_num
+      · pratt_step 3 [(2^3), (3209^1)]
+        · norm_num
+        · pratt_step 3 [(2^3), (401^1)]
+          · norm_num
+          · pratt_step 3 [(2^4), (5^2)]
+            · norm_num
+            · norm_num
+    · pratt_step 2 [(2^2), (13^1), (19603^1)]
+      · norm_num
+      · norm_num
+      · pratt_step 2 [(2^1), (3^4), (11^2)]
+        · norm_num
+        · norm_num
+        · norm_num
+    · pratt_step 2 [(2^2), (3^1), (1217^1), (16519^1), (43067977^1), (3406339441^1)]
+      · norm_num
+      · norm_num
+      · pratt_step 3 [(2^6), (19^1)]
+        · norm_num
+        · norm_num
+      · pratt_step 3 [(2^1), (3^1), (2753^1)]
+        · norm_num
+        · norm_num
+        · pratt_step 3 [(2^6), (43^1)]
+          · norm_num
+          · norm_num
+      · pratt_step 10 [(2^3), (3^1), (7^1), (269^1), (953^1)]
+        · norm_num
+        · norm_num
+        · norm_num
+        · pratt_step 2 [(2^2), (67^1)]
+          · norm_num
+          · norm_num
+        · pratt_step 3 [(2^3), (7^1), (17^1)]
+          · norm_num
+          · norm_num
+          · norm_num
+      · pratt_step 11 [(2^4), (3^3), (5^1), (7^1), (225287^1)]
+        · norm_num
+        · norm_num
+        · norm_num
+        · norm_num
+        · pratt_step 5 [(2^1), (112643^1)]
+          · norm_num
+          · pratt_step 2 [(2^1), (17^1), (3313^1)]
+            · norm_num
+            · norm_num
+            · pratt_step 10 [(2^4), (3^2), (23^1)]
+              · norm_num
+              · norm_num
+              · norm_num

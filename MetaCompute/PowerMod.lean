@@ -236,7 +236,7 @@ elab "power_mod_neq" : tactic => withMainContext do
   let b' ← delabNatExpr b'
   let q ← delabNatExpr q
   let m ← delabNatExpr m
-  logInfo m!"power_mod_neq: {a} ^ ({b'} / {q}) % {m} ≠ {n}"
+  -- logInfo m!"power_mod_neq: {a} ^ ({b'} / {q}) % {m} ≠ {n}"
   let tac ← `(tactic|have := power_mod_pf# $a ^ ($b' / $q) % $m)
   let tacs := #[tac, ← `(tactic|rw [this]), ← `(tactic|decide)]
   let tacSeq ← `(tacticSeq| $tacs*)
