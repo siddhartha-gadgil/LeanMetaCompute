@@ -18,7 +18,7 @@ partial def parseFactors : String.Parser (List (Nat × Nat)) := do
   return (p, e) :: tail
 
 def getFactors (s : String) : IO <| List (Nat × Nat) := do
-  IO.ofExcept <| parseFactors.run s
+  IO.ofExcept <| parseFactors.run s |>.mapError ("Error getting factors: " ++ ·)
 
 def parsePrimitiveRootOf (base : Nat) : String.Parser Nat := do
   ws
@@ -39,4 +39,4 @@ def parsePrimitiveRootOf (base : Nat) : String.Parser Nat := do
   return root
 
 def getPrimitiveRootOf (base : Nat) (s : String) : IO <| Nat := do
-  IO.ofExcept <| (parsePrimitiveRootOf base).run s
+  IO.ofExcept <| (parsePrimitiveRootOf base).run s |>.mapError ("Error getting primitive root: " ++ ·)
