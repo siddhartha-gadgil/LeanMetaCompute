@@ -127,8 +127,14 @@ unsafe def Lean.Expr.applyAutoParamArgs (e : Expr) : TacticM Expr := do
 unsafe def Lean.Meta.Expr.mkAppAutoM (constName : Name) (args : Array Expr) : TacticM Expr := do
   mkAppN (mkConst constName) args |>.applyAutoParamArgs
 
-open Lean Elab Meta Term in
-elab "pratt_certificate_for_safe%" p:num "using" a:num : term => unsafe do
+open Lean Elab Meta Term
+declare_syntax_cat exp_pair
+syntax "(" num "^" num ")" : exp_pair
+def fromExpPair : Syntax → MetaM (ℕ × ℕ)
+| `(exp_pair|( $a ^ $b)) => return (a.getNat, b.getNat)
+| _ => throwUnsupportedSyntax
+
+elab "pratt_certificate_for_safe%" p:num "using" a:num : term => do
   let pExpr ← elabTerm p (mkConst ``Nat)
   let tgt ← mkAppM ``PrattCertificate #[pExpr]
   let goal ← mkFreshExprMVar (some tgt)
@@ -147,6 +153,28 @@ elab "pratt_certificate_for_safe%" p:num "using" a:num : term => unsafe do
   return goal
 
 #eval pratt_certificate_for_safe% 19 using 2
+
+-- For experiments only, purge later
+elab "pratt_certificate_safe%" p:num "using" a:num "[" fctrs:exp_pair,* "]" : term => do
+  let pExpr ← elabTerm p (mkConst ``Nat)
+  let tgt ← mkAppM ``PrattCertificate #[pExpr]
+  let goal ← mkFreshExprMVar (some tgt)
+  let p := p.getNat
+  let a := a.getNat
+  let factors ← fctrs.getElems.toList.mapM
+    fun pair => fromExpPair pair
+  let factors := factors.map (fun (x : Nat × Nat) => (x.1, x.2 - 1))
+  let cert := mkApp3 (mkConst ``PrattCertificate.mk) (toExpr p) (toExpr a) (toExpr factors)
+  let [p_ne_one, a_pow_minus_one, factors_correct, a_pow_d_by_pminus1, factors_prime] ← goal.mvarId!.apply cert | throwError
+    "pratt_certificate_for_safe%: expected 5 arguments"
+  discard <| runTactic p_ne_one <| ← `(tactic|decide)
+  discard <| runTactic a_pow_minus_one <| ← `(tactic|prove_power_mod)
+  discard <| runTactic factors_correct <| ← `(tactic|decide)
+  discard <| runTactic a_pow_d_by_pminus1 <| ← `(tactic|forall_in_list power_mod_neq)
+  discard <| runTactic factors_prime <| ← `(tactic|simp +decide only)
+  return goal
+
+#eval pratt_certificate_safe% 19 using 2 [ (2 ^ 1), (3 ^ 2) ]
 
 
 theorem List.prime_div_is_factor (l: List (Nat × Nat))
@@ -263,18 +291,46 @@ example : Nat.Prime 48611 := by
   prime
   · prime
 
+def prattReduce (a : ℕ) (factors : List (ℕ × ℕ)) (goal : MVarId)  : MetaM <| List MVarId := goal.withContext do
+  let_expr Nat.Prime pE := ←  goal.getType | throwError "target is not of the form `Nat.Prime _`"
+  let some p ← getNatValue? (← reduce pE) | throwError "Failed to obtain a natural number from {pE}"
+  let tgt ← mkAppM ``PrattCertificate #[pE]
+  let prattGoal ← mkFreshExprMVar (some tgt)
+  let factors := factors.map (fun (x : Nat × Nat) => (x.1, x.2 - 1))
+  let cert := mkApp3 (mkConst ``PrattCertificate.mk) (toExpr p) (toExpr a) (toExpr factors)
+  let args ← prattGoal.mvarId!.apply cert
+  let [p_ne_one, a_pow_minus_one, factors_correct, a_pow_d_by_pminus1, factors_prime] := args | throwError
+    "pratt_certificate: expected 5 arguments"
+  discard <| runTactic p_ne_one <| ← `(tactic|decide)
+  discard <| runTactic a_pow_minus_one <| ← `(tactic|prove_power_mod)
+  discard <| runTactic factors_correct <| ← `(tactic|decide)
+  discard <| runTactic a_pow_d_by_pminus1 <| ← `(tactic|forall_in_list power_mod_neq)
+  let (goals, _) ←  runTactic factors_prime <| ← `(tactic| forall_in_list skip)
+  let fullCert ←  mkAppM ``PrattCertificate.mk (#[toExpr a, toExpr factors] ++ (args.toArray.map mkMVar))
+  let primeProof ← mkAppM ``pratt_certification #[pE, fullCert]
+  goal.assign primeProof
+  return goals
 
-example : Nat.Prime 85083351022467190124442353598696803287939269665617 := by repeat (prime)
+
+elab "pratt_step"  a:num "[" fctrs:exp_pair,* "]" : tactic => withMainContext do
+  let a := a.getNat
+  let factors ← fctrs.getElems.toList.mapM
+    fun pair => fromExpPair pair
+  let goals ← prattReduce a factors (← getMainGoal)
+  replaceMainGoal goals
+
+example : Nat.Prime 19 := by
+  pratt_step 2 [ (2 ^ 1), (3 ^ 2) ]
+  · decide
+  · decide
+
+
+example : Nat.Prime 85083351022467190124442353598696803287939269665617 := by repeat prime
 
 #check Nat.one_mod_eq_one
 
 #check Int.ModEq.eq
 #check Nat.ModEq.eq_1
-
-#loogle (_ % ?p) ^ _ % ?p
-#check ZMod.intCast_eq_intCast_iff
-
-#loogle (_ : ZMod _) ^ (_ : ℕ) = (_ : ZMod _)
 
 #check ZMod.intCast_eq_intCast_iff
 #check Nat.cast_one
