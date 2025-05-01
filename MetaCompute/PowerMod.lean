@@ -179,9 +179,8 @@ Given a meta variable `mvarId`, assign to it a proof of the equation `powerMod a
 def provePowModM : MVarId → MetaM Unit :=
   fun mvarId =>
     mvarId.withContext do
-    let goalType ← mvarId.getType
-    let some tgt ← checkTypeQ goalType q(Prop) | throwError "prove_power_mod: expected the goal to be a proposition"
-    let ~q(powerMod $a $b $m = $n) := tgt | throwError "prove_power_mod: expected the goal to be a powerMod equation"
+    let ⟨1, ~q(Prop), ~q(powerMod $a $b $m = $n)⟩ ← inferTypeQ (← mvarId.getType)
+      | throwError "prove_power_mod: expected the goal to be a powerMod equation"
     let pf ← powerModProof (← decodeNatExpr a) (← decodeNatExpr b) (← decodeNatExpr m)
     mvarId.assign pf
     return
@@ -225,18 +224,15 @@ example : ¬ powerMod 2232421124 10027676 121 = 41 := by
 
 open Qq in
 elab "power_mod_neq" : tactic => withMainContext do
-  let tgt ← getMainTarget
-  let some tgt ← checkTypeQ tgt q(Prop) | throwError "power_mod_neq: expected the goal to be a proposition"
-  let ~q(powerMod $a ($b' / $q) $m ≠ $n) := tgt | throwError "power_mod_neq: expected the goal to be a powerMod in-equation"
+  let ⟨1, ~q(Prop), ~q(powerMod $a ($b' / $q) $m ≠ $n)⟩ ← inferTypeQ (← getMainTarget)
+    | throwError "power_mod_neq: expected the goal to be a powerMod in-equation"
   let delabNatExpr (e : Q(ℕ)) : MetaM NumLit := do
-    let e ← reduce e
-    let some val ← getNatValue? e | throwError "power_mod_neq: expected a natural number for {e}"
+    let some val ← getNatValue? (← reduce e) | throwError "power_mod_neq: expected a natural number for {e}"
     return Syntax.mkNatLit val
   let a ← delabNatExpr a
   let b' ← delabNatExpr b'
   let q ← delabNatExpr q
   let m ← delabNatExpr m
-  logInfo m!"power_mod_neq: {a} ^ ({b'} / {q}) % {m} ≠ {n}"
   let tac ← `(tactic|have := power_mod_pf# $a ^ ($b' / $q) % $m)
   let tacs := #[tac, ← `(tactic|rw [this]), ← `(tactic|decide)]
   let tacSeq ← `(tacticSeq| $tacs*)
