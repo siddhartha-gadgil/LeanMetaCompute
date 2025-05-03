@@ -337,12 +337,16 @@ partial def primeScript (goal : MVarId) :
       `(tactic| · $stx*)
     return head :: tail
 
-syntax (name := pratt_tac) "pratt" : tactic
+declare_syntax_cat computer_algebra_system
+syntax "pari" : computer_algebra_system
+
+syntax (name := pratt_tac) "pratt" (computer_algebra_system)? : tactic
 
 @[tactic pratt_tac]
 def prattImpl : Tactic := fun stx => withMainContext do
   match stx with
-  | `(tactic|pratt) => withMainContext do
+  | `(tactic|pratt)
+  | `(tactic| pratt pari) => withMainContext do
     let scripts ←  primeScript (← getMainGoal)
     let scripts := scripts.toArray
     TryThis.addSuggestion stx <| ← `(tactic|· $scripts*)
