@@ -109,40 +109,6 @@ def eqnExpr? (e: Expr) : MetaM (Option (ℕ × ℕ × ℕ × ℕ)) := do
   else
     return none
 
-#check HPow.hPow
-
-#check Lean.MVarId.isAssigned
-simproc ↓ powerModIterSquare (powerMod _ _ _) := fun e ↦ do
-  -- let some e ← checkTypeQ e q(ℕ) | return .continue
-  -- let ~q(powerMod $a $b $m) := e | return .continue
-  let_expr powerMod a b m := e | return .continue
-  let some b ← getNatValue? b | return .continue
-  let a : Q(ℕ) := a
-  -- let some a ← Qq.checkTypeQ a q(ℕ) | return .continue
-  let m : Q(ℕ) := m
-  -- let some m ← Qq.checkTypeQ m q(ℕ) | return .continue
-  if b = 0 then
-    return .visit {
-      expr := q(1 % $m),
-      proof? := some q(zero_powerMod $a $m)
-    }
-  else if b % 2 = 0 then
-    let b' : Q(ℕ) := toExpr (b / 2)
-    return .visit {
-      expr := q((powerMod $a $b' $m) ^ 2 % $m),
-      proof? := some q(even_powerMod' $a $b' $m)
-    }
-  else
-    let b' : Q(ℕ) := toExpr b.pred
-    return .visit {
-      expr := q(($a * powerMod $a $b' $m) % $m),
-      proof? := some q(odd_powerMod' $a $b' $m)
-    }
-
--- example : powerMod 5 9 3 = 2 := by
---   simp only [powerModIterSquare]
---   rfl
-
 def powerModProof (a b m : ℕ) : MetaM Expr := do
   let n := powerMod a b m
   let goal ← eqnExpr a b m n
