@@ -64,6 +64,8 @@ partial def primeScript (goal : MVarId) :
     discard <| runTactic goal <| ← `(tactic|norm_num)
     return [← `(tactic|norm_num)]
   else
+    unless ← ping do
+      throwError "Pari (https://pari.math.u-bordeaux.fr/) is not installed or not in the PATH. This is required for `pratt`."
     let check ← queryPari s!"isprime({p})"
     unless check = "1" do
       throwError "{pE} is not a prime (according to Pari)"
