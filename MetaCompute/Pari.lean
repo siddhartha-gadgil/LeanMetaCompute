@@ -39,18 +39,3 @@ def znPrimRoot (p : Nat) : IO Nat := do
 
 end pari
 open pari
--- #eval queryPari "isprime(85083351022467190124442353598696803287939269665617)"
-
--- #eval queryPari "factor(120)"
-
-/-
-"Mod(5, 85083351022467190124442353598696803287939269665617)"
--/
--- #eval queryPari "znprimroot(85083351022467190124442353598696803287939269665617)"
-
--- #eval isPrime 120
--- #eval factors 120
-
--- #check String.toNat?
-
--- #eval znPrimRoot 85083351022467190124442353598696803287939269665617 -- 5

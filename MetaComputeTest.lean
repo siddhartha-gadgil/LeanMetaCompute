@@ -1,1 +1,2 @@
 import MetaComputeTest.BigPrime
+import MetaComputeTest.Pari
