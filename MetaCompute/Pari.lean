@@ -22,6 +22,11 @@ def queryPari (cmd : String) : IO String := do
 
 namespace pari
 
+def ping : IO Bool := do
+  let out ← cmd_with_stdin
+              { cmd := "gp", args := #["-q", "--emacs"]} "version()"
+  return out.exitCode == 0
+
 def factors (n : Nat) : IO <| List (Nat × Nat) := do
   getFactors <| ← queryPari s!"factor({n})"
 
@@ -33,7 +38,7 @@ def znPrimRoot (p : Nat) : IO Nat := do
   getPrimitiveRootOf p <| ← queryPari s!"znprimroot({p})"
 
 end pari
- open pari
+open pari
 -- #eval queryPari "isprime(85083351022467190124442353598696803287939269665617)"
 
 -- #eval queryPari "factor(120)"
@@ -48,7 +53,7 @@ end pari
 
 -- #check String.toNat?
 
-#eval znPrimRoot 85083351022467190124442353598696803287939269665617 -- 5
+-- #eval znPrimRoot 85083351022467190124442353598696803287939269665617 -- 5
 
 def listProduct (l : List (Nat × Nat)) : Nat :=
   match l with
