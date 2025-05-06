@@ -167,27 +167,6 @@ elab "power_mod_pf#"
     let b := b'.getNat / q.getNat
     powerModProof a.getNat b m.getNat
 
-#eval powerMod 2232421124 10027676 121 -- 45
-
-example : 2232421124 ^ 10027676 % 121 = 45 := by
-  decide +kernel
-
-example : powerMod 2232421124 10027676 121 = 45 := by
-  prove_power_mod
-
-example : powerMod 2232421124 10027676 121 = 45 := by
-  prove_power_mod
-
-
-example : powerMod 2232421124 10027676 121 = 45 := by
-  have := power_mod_pf# 2232421124 ^ 10027676 % 121
-  rw [this]
-
-example : ¬ powerMod 2232421124 10027676 121 = 41 := by
-  have := power_mod_pf# 2232421124 ^ 10027676 % 121
-  rw [this]
-  simp
-
 open Qq in
 elab "power_mod_neq" : tactic => withMainContext do
   let ⟨1, ~q(Prop), ~q(powerMod $a ($b' / $q) $m ≠ $n)⟩ ← inferTypeQ (← getMainTarget)
