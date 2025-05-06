@@ -1,2 +1,5 @@
 import MetaComputeTest.BigPrime
 import MetaComputeTest.Pari
+import MetaComputeTest.Pratt
+import MetaComputeTest.PrimalityReduce
+import MetaComputeTest.PowerMod
