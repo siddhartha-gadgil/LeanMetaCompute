@@ -1,6 +1,13 @@
 import Mathlib
 import MetaCompute.PowerMod
 
+/--
+Recover a number from its prime factorization, encoded as a list of pairs of primes and their powers.
+
+The convention enforced here is that the exponents are one less than their actual value, as a way to enforce positivity.
+
+For example, the number `2^3 * 3^2` would be represented as `[(2, 2), (3, 1)]`.
+-/
 def listProduct (l : List (Nat × Nat)) : Nat :=
   match l with
   | [] => 1
@@ -16,11 +23,15 @@ theorem listProduct_cons (x : Nat × Nat) (xs : List (Nat × Nat)) :
   listProduct (x :: xs) = x.1 ^ (x.2 + 1) * listProduct xs := by
   simp [listProduct]
 
+/-- An auxilliary tactic that proves a goal of the form
+`∀ x ∈ (l : List α), P x` by creating one goal for each element of the list `l` and
+  attempting to close each goal with the given tactic.
+-/
 macro "forall_in_list" tac:tactic : tactic => do
   `(tactic| (simp! only [List.mem_cons, List.not_mem_nil, or_false, forall_eq_or_imp, forall_eq]; split_ands; all_goals (try $tac:tactic)))
 
-
 open Parser Lean Meta Elab Tactic in
+/-- A tactic to prove primality of small primes using `norm_num`. -/
 elab "small_prime" max?:(num)? : tactic => withMainContext do
   let_expr Nat.Prime pE := ← getMainTarget | throwError "target is not of the form `Nat.Prime _`"
   let some p ← getNatValue? (← reduce pE) | throwError "Failed to obtain a natural number from {pE}"
@@ -28,6 +39,11 @@ elab "small_prime" max?:(num)? : tactic => withMainContext do
   if p < max then
     evalTactic <| ← `(tactic|norm_num)
 
+/--
+The information required for the Lucas primality test to cerrtify primality.
+
+Given the fields `a` and `factors`, the rest of the proofs can be synthesized automatically using the provided tactics.
+-/
 structure PrattCertificate (p : Nat) where
   a : Nat
   factors : List (Nat × Nat)
@@ -92,7 +108,7 @@ theorem PrattCertificate.prime_dvd_is_factor {p : Nat} (cert : PrattCertificate 
   apply
     cert.factors.prime_div_is_factor cert.factors_correct cert.factors_prime q q_div_pminus1 prime_q
 
-
+/-- A certificate can be used to prove primality by the Lucas primality test. -/
 theorem pratt_certification (p : Nat) (cert : PrattCertificate p) : Nat.Prime p := by
   apply lucas_primality p cert.a
   · rw [← ZMod.natCast_mod]

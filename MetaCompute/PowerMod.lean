@@ -2,6 +2,7 @@ import Mathlib
 import Lean
 import Qq
 
+/-- Computes `a ^ b % m` by iterated squaring and reduction modulo `m`. -/
 def powerMod (a b m : ℕ) : ℕ   :=
   if b = 0 then 1  % m
   else
@@ -156,6 +157,7 @@ where
     let some val ← getNatValue? e | throwError "prove_power_mod: expected a natural number for {e}"
     return val
 
+/-- A tactic that proves goals of the form `a ^ b % m = n`. -/
 elab "prove_power_mod" : tactic => liftMetaFinishingTactic provePowModM
 
 elab "power_mod_pf#"
@@ -168,6 +170,7 @@ elab "power_mod_pf#"
     powerModProof a.getNat b m.getNat
 
 open Qq in
+/-- A tactic that proves goals of the form `a ^ b % m ≠ n`. -/
 elab "power_mod_neq" : tactic => withMainContext do
   let ⟨1, ~q(Prop), ~q(powerMod $a ($b' / $q) $m ≠ $n)⟩ ← inferTypeQ (← getMainTarget)
     | throwError "power_mod_neq: expected the goal to be a powerMod in-equation"
