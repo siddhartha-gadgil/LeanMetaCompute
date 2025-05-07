@@ -1,6 +1,8 @@
 import MetaCompute.PowerMod
 
-#eval powerMod 2232421124 10027676 121 -- 45
+/-- info: 45 -/
+#guard_msgs in
+#eval powerMod 2232421124 10027676 121
 
 example : 2232421124 ^ 10027676 % 121 = 45 := by
   decide +kernel
