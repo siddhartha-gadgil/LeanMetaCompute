@@ -79,5 +79,9 @@ example : Nat.Prime 85083351022467190124442353598696803287939269665617 := by
               · norm_num
               · norm_num
 
+
+/-
+Proving a large prime number using the `pratt` tactic. A code action allows you to generate the proof script for the `pratt` tactic, so that calls to pari-gp are not required for the generated script.
+-/
 example : Nat.Prime 85083351022467190124442353598696803287939269665617 := by
   pratt

@@ -1,6 +1,10 @@
 import MetaCompute.Pari
 import MetaCompute.PrattCertificate
+/-!
+## Pratt primality test: Tactic
 
+This file implements the tactic `pratt` for proving primality of a number using the Pratt primality test.
+-/
 open Lean Elab Meta Term Tactic
 open pari
 
@@ -12,7 +16,9 @@ def primeProp? (expr : Expr) : MetaM (Option Expr) := do
   else
     return none
 
-
+/--
+Given a goal of the form `Nat.Prime p`, this function reduces the goal to proving primality of smaller numbers as required by Pratt certificates for Lucas Primality.
+-/
 def prattReduce (a : ℕ) (factors : List (ℕ × ℕ)) (goal : MVarId)  : MetaM <| List MVarId := goal.withContext do
   let some pE  ← primeProp? (←   goal.getType) | throwError "target is not of the form `Nat.Prime _`"
   let some p ← getNatValue? (← reduce pE) | throwError "Failed to obtain a natural number from {pE}"
@@ -45,7 +51,9 @@ def toExpPair (pair : ℕ × ℕ) : MetaM <| TSyntax `exp_pair :=
   let bStx := Syntax.mkNumLit (toString pair.2)
   `(exp_pair| ( $aStx ^ $bStx))
 
-
+/--
+The `pratt_step` tactic is used to prove primality of a number by reducing it to smaller numbers as required by Pratt certificates for Lucas Primality.
+-/
 elab "pratt_step"  a:num ppSpace "[" fctrs:exp_pair,* "]" : tactic  => withMainContext do
   let a := a.getNat
   let factors ← fctrs.getElems.toList.mapM
@@ -53,6 +61,9 @@ elab "pratt_step"  a:num ppSpace "[" fctrs:exp_pair,* "]" : tactic  => withMainC
   let goals ← prattReduce a factors (← getMainGoal)
   replaceMainGoal goals
 
+/--
+Generate a proof script for the `pratt` tactic.
+-/
 partial def primeScript (goal : MVarId) :
   MetaM <| List Syntax.Tactic := goal.withContext do
   let tgt ← reduce (← goal.getType)
@@ -87,6 +98,13 @@ partial def primeScript (goal : MVarId) :
 declare_syntax_cat computer_algebra_system
 syntax "pari" : computer_algebra_system
 
+/--
+The `pratt` tactic is used to prove primality of a number using the Pratt primality test.
+It works by reducing the goal to proving primality of smaller numbers as required by Pratt certificates for Lucas Primality.
+The tactic uses the `pratt_step` command to prove primality of a number by reducing it to smaller numbers.
+
+A code action allows you to generate the proof script for the `pratt` tactic, so that calls to pari-gp are not required for the generated script.
+-/
 syntax (name := pratt_tac) "pratt" (computer_algebra_system)? : tactic
 
 @[tactic pratt_tac]
@@ -100,5 +118,3 @@ def prattImpl : Tactic := fun stx => withMainContext do
     return
   | _ =>
     throwUnsupportedSyntax
-
-#check prattImpl

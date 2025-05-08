@@ -1,6 +1,11 @@
 import MetaCompute.Parsers
 import MetaCompute.PowerMod
 import Mathlib
+/-!
+## Pari interface
+This file provides an interface to the Pari library for primality testing and factorization.
+It includes functions for checking primality, finding primitive roots, and factorization.
+-/
 
 open IO.Process in -- code by Max Nowak from https://leanprover.zulipchat.com/#narrow/stream/270676-lean4/topic/external.20process/near/345090183
 /-- Pipe input into stdin of the spawned process, then return output upon completion. -/

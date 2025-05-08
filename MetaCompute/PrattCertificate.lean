@@ -1,5 +1,10 @@
 import Mathlib
 import MetaCompute.PowerMod
+/-!
+## Pratt primality test: Certificate
+
+In this file, we define the structure of a Pratt certificate and the necessary lemmas to prove primality using the Lucas primality test.
+-/
 
 /--
 Recover a number from its prime factorization, encoded as a list of pairs of primes and their powers.
@@ -40,7 +45,7 @@ elab "small_prime" max?:(num)? : tactic => withMainContext do
     evalTactic <| ← `(tactic|norm_num)
 
 /--
-The information required for the Lucas primality test to cerrtify primality.
+The information required for the Lucas primality test to certify primality.
 
 Given the fields `a` and `factors`, the rest of the proofs can be synthesized automatically using the provided tactics.
 -/

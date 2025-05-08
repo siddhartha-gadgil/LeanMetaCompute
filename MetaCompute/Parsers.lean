@@ -1,4 +1,8 @@
 import Std.Internal.Parsec.String
+/-!
+## Pari interface helpers
+This file provides parsers for the output of the Pari library.
+-/
 
 open Lean Std Internal Parsec String
 
