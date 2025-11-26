@@ -38,13 +38,9 @@ theorem odd_powerMod (a b m n : ℕ) :
   powerMod a b m = n → powerMod a  (2 * b + 1)  m = (a * n * n) % m := by
     intro hyp
     rw [powerMod]
-    have nz : ¬ (2 * b + 1 = 0) := by
-      omega
-    simp [nz]
-    have h1 : (2 * b + 1) / 2 = b := by
-      simp [Nat.add_div]
-    simp [h1]
-    rw [hyp]
+    simp only [Nat.add_eq_zero, mul_eq_zero, OfNat.ofNat_ne_zero, false_or, one_ne_zero, and_false,
+      ↓reduceIte, Nat.mul_add_mod_self_left, Nat.mod_succ]
+    grind [Nat.add_div]
 
 theorem powerModDef (a b m: ℕ): powerMod a b m = a ^ b % m := by
   if c: b = 0 then
@@ -73,7 +69,7 @@ theorem powerModDef (a b m: ℕ): powerMod a b m = a ^ b % m := by
       simp at lem
       rw [lem]
       rw [two_mul, Nat.pow_add, Nat.pow_add, pow_one, mul_assoc, mul_comm]
-      simp [Nat.mul_mod, Nat.mod_mod]
+      simp [Nat.mul_mod]
 
 theorem odd_powerMod' (a b m : ℕ) : powerMod a (b + 1) m = (a * powerMod a b m) % m := by
   rw [powerModDef, powerModDef, pow_succ, mul_comm _ a, Nat.mul_mod_mod]
