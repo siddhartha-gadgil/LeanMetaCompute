@@ -23,7 +23,8 @@ theorem even_powerMod (a b m n : ℕ) :
     intro hyp
     rw [powerMod]
     split
-    · have h': 2 * b = 0 := by assumption
+    ·
+      have h': 2 * b = 0 := by assumption
       simp at h'
       rw [powerMod] at hyp
       simp [h'] at hyp
@@ -38,7 +39,7 @@ theorem odd_powerMod (a b m n : ℕ) :
   powerMod a b m = n → powerMod a  (2 * b + 1)  m = (a * n * n) % m := by
     intro hyp
     rw [powerMod]
-    simp only [Nat.add_eq_zero, mul_eq_zero, OfNat.ofNat_ne_zero, false_or, one_ne_zero, and_false,
+    simp only [Nat.add_eq_zero_iff, mul_eq_zero, OfNat.ofNat_ne_zero, false_or, one_ne_zero, and_false,
       ↓reduceIte, Nat.mul_add_mod_self_left, Nat.mod_succ]
     grind [Nat.add_div]
 
