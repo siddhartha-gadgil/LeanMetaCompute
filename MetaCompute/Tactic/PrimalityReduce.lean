@@ -32,9 +32,9 @@ elab "primality_reduce" : tactic => unsafe withMainContext do
   unless check = "1" do
     throwError "{pE} is not a prime (according to Pari)"
   let a ← znPrimRoot p
-  logInfo m!"Primitive root: {a}"
+  -- logInfo m!"Primitive root: {a}"
   let factors := (← factors (p - 1)) |>.map fun (q, e) ↦ (q, e - 1)
-  logInfo m!"Factors: {factors}"
+  -- logInfo m!"Factors: {factors}"
   let cert ← mkAppAutoM ``PrattCertificate.mk #[pE, toExpr a, toExpr factors]
   let primeProof ← mkAppM ``pratt_certification #[pE, cert]
   (← getMainGoal).assignIfDefEq primeProof

@@ -15,9 +15,11 @@ def powerMod (a b m : ℕ) : ℕ   :=
     (a * n * n) % m
 termination_by b
 
+@[grind .]
 theorem zero_powerMod (a m : ℕ) : powerMod a 0 m = 1 % m :=
   by simp [powerMod]
 
+@[grind .]
 theorem even_powerMod (a b m n : ℕ) :
   powerMod a b m = n → powerMod a (2 * b)  m = (n * n) % m := by
     intro hyp
@@ -32,17 +34,18 @@ theorem even_powerMod (a b m n : ℕ) :
     · simp
       rw [hyp]
 
+@[grind .]
 theorem even_powerMod' (a b m : ℕ) : powerMod a (2 * b) m = ((powerMod a b m) ^ 2) % m := by
   rw [even_powerMod, pow_two]; rfl
 
+@[grind .]
 theorem odd_powerMod (a b m n : ℕ) :
   powerMod a b m = n → powerMod a  (2 * b + 1)  m = (a * n * n) % m := by
     intro hyp
     rw [powerMod]
-    simp only [Nat.add_eq_zero_iff, mul_eq_zero, OfNat.ofNat_ne_zero, false_or, one_ne_zero, and_false,
-      ↓reduceIte, Nat.mul_add_mod_self_left, Nat.mod_succ]
     grind [Nat.add_div]
 
+@[grind .]
 theorem powerModDef (a b m: ℕ): powerMod a b m = a ^ b % m := by
   if c: b = 0 then
     simp [c, zero_powerMod]

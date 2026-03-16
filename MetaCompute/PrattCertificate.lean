@@ -86,24 +86,14 @@ theorem List.prime_div_is_factor (l: List (Nat × Nat))
     else
       cases c':q_div_n
       case inl d =>
-        have d' := Nat.Prime.dvd_of_dvd_pow prime_q d
         have h' := primes (q', m) (by simp [List.mem_cons])
-        simp at h'
-        rw [Nat.prime_dvd_prime_iff_eq prime_q h'] at d'
-        simp [c, d']
+        grind [Nat.Prime.dvd_of_dvd_pow prime_q, Nat.prime_dvd_prime_iff_eq prime_q]
       case inr d =>
         let n' := listProduct xs
         let prod' : listProduct xs = n' := rfl
-        let primes' : ∀ pair ∈ xs, Nat.Prime pair.1 := by
-          intro pair h
-          apply primes
-          apply List.mem_cons_of_mem
-          assumption
+        let primes' : ∀ pair ∈ xs, Nat.Prime pair.1 := by grind
         let ih := List.prime_div_is_factor xs prod' primes' q d prime_q
-        let ⟨k, factor⟩ := ih
-        use k
-        right
-        assumption
+        grind
 
 
 theorem PrattCertificate.prime_dvd_is_factor {p : Nat} (cert : PrattCertificate p) :
@@ -115,31 +105,21 @@ theorem PrattCertificate.prime_dvd_is_factor {p : Nat} (cert : PrattCertificate 
 
 /-- A certificate can be used to prove primality by the Lucas primality test. -/
 theorem pratt_certification (p : Nat) (cert : PrattCertificate p) : Nat.Prime p := by
+  have h := cert.p_ne_one
+  have h' := cert.a_pow_pminus_1
   apply lucas_primality p cert.a
   · rw [← ZMod.natCast_mod]
     rw [← Nat.cast_pow]
     nth_rewrite 2 [← Nat.cast_one]
     rw [ZMod.natCast_eq_natCast_iff, Nat.ModEq]
-    have h := cert.a_pow_pminus_1
-    rw [powerModDef] at h
-    rw [← Nat.pow_mod]
-    rw [h]
-    symm
-    apply Nat.one_mod_eq_one.2
-    exact cert.p_ne_one
+    grind [Nat.one_mod_eq_one.2, Nat.pow_mod]
   · intro q prime_q q_div_pminus1
     have h := cert.prime_dvd_is_factor q q_div_pminus1 prime_q
     have ⟨k, factor⟩ := h
     have h' := cert.a_pow_p_by_d_minus_1 (q, k) factor
-    rw [powerModDef] at h'
-    simp at h'
     rw [← ZMod.natCast_mod]
     rw [← Nat.cast_pow]
     nth_rewrite 2 [← Nat.cast_one]
     intro contra
     rw [ZMod.natCast_eq_natCast_iff, Nat.ModEq] at contra
-    rw [← Nat.pow_mod] at contra
-    rw [contra] at h'
-    apply h'
-    apply Nat.one_mod_eq_one.2
-    exact cert.p_ne_one
+    grind [Nat.one_mod_eq_one, Nat.pow_mod]
