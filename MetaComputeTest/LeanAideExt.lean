@@ -14,11 +14,6 @@ def primalityCode (_ : CodeGenerator := {}) :
 | goal?, kind ,_ => throwError
     s!"codegen: induction does not work for kind {kind} with goal present: {goal?.isSome}"
 
-example : Nat.Prime 48611 := by repeat primality_reduce
-
--- #stopLogs
-
--- #codegen induction_eg
 def primality_eg := json% {
   "theorem" : {
     "claim" : "Nat.Prime 85083351022467190124442353598696803287939269665617",
@@ -26,4 +21,5 @@ def primality_eg := json% {
   }
 }
 
+#stopLogs -- remove this line to see the logs for the codegen process
 #codegen primality_eg

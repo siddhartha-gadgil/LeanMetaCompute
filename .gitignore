@@ -2,3 +2,7 @@
 /.lake
 /.leanaide_cache
 /.logs
+
+.logs/
+
+.leanaide_cache/
