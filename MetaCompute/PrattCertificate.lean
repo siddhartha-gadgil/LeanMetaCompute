@@ -21,9 +21,11 @@ def listProduct (l : List (Nat × Nat)) : Nat :=
     let x_pow_y := x ^ (y + 1)
     x_pow_y * prod
 
+@[grind .]
 theorem listProduct_nil : listProduct [] = 1 := by
   simp [listProduct]
 
+@[grind .]
 theorem listProduct_cons (x : Nat × Nat) (xs : List (Nat × Nat)) :
   listProduct (x :: xs) = x.1 ^ (x.2 + 1) * listProduct xs := by
   simp [listProduct]
@@ -70,10 +72,7 @@ theorem List.prime_div_is_factor (l: List (Nat × Nat))
     simp [listProduct] at prod
     intro q q_div_n prime_q
     simp [← prod] at q_div_n
-    simp [q_div_n] at prime_q
-    apply False.elim
-    apply Nat.prime_one_false
-    assumption
+    grind [Nat.prime_one_false]
   | (q', m) :: xs =>
     intro q q_div_n prime_q
     simp [listProduct_cons] at prod
@@ -81,8 +80,7 @@ theorem List.prime_div_is_factor (l: List (Nat × Nat))
     rw [← prod] at q_div_n
     rw [Nat.Prime.dvd_mul prime_q] at q_div_n
     if c: q = q' then
-      rw [← c] at q_div_n
-      simp [c]
+      grind
     else
       cases c':q_div_n
       case inl d =>
